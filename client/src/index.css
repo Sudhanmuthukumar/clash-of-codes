@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { @apply border-stone-800; }
+  body { @apply bg-stone-950 text-amber-50; }
+}
+
+@layer components {
+  /* Primary Action Button - Gold / Bronze Battle Button with 3D Bevel */
+  .btn-primary {
+    @apply px-5 py-2.5 bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-stone-950 font-bold font-sans tracking-wide rounded-lg border-t border-amber-200 border-b-4 border-amber-800 shadow-[0_4px_12px_rgba(217,119,6,0.35)] active:translate-y-0.5 active:border-b-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+  }
+
+  /* Secondary Button - Fortified Stone / Wood */
+  .btn-secondary {
+    @apply px-4 py-2 bg-stone-900/90 hover:bg-stone-800 text-amber-100 font-medium rounded-lg border border-amber-900/40 hover:border-amber-600/60 shadow-sm transition-all duration-150;
+  }
+
+  /* Danger Button - Crimson War Banner */
+  .btn-danger {
+    @apply px-4 py-2 bg-gradient-to-b from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white font-bold rounded-lg border-b-2 border-red-950 shadow-md transition-all duration-150;
+  }
+
+  /* Success Button - Emerald Forest Garrison */
+  .btn-success {
+    @apply px-4 py-2 bg-gradient-to-b from-emerald-600 to-emerald-800 hover:from-emerald-500 hover:to-emerald-700 text-white font-bold rounded-lg border-b-2 border-emerald-950 shadow-md transition-all duration-150;
+  }
+
+  /* Fortified Panel Card */
+  .card {
+    @apply bg-stone-900/90 backdrop-blur-md border border-stone-800 rounded-xl p-6 shadow-xl relative;
+  }
+
+  /* Fortress Stone Card */
+  .card-fortress {
+    @apply bg-gradient-to-b from-stone-900/95 to-stone-950/95 border-2 border-amber-900/40 rounded-xl p-6 shadow-2xl relative overflow-hidden;
+  }
+
+  /* Parchment Card */
+  .card-parchment {
+    @apply bg-[#1f1b18]/90 border border-amber-700/30 rounded-xl p-6 shadow-xl text-amber-100;
+  }
+
+  /* Input Field */
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-stone-950/90 border border-stone-700 rounded-lg text-amber-50 placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-sans;
+  }
+
+  /* Form Labels */
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wider text-amber-200/80 mb-1.5;
+  }
+
+  /* Building Block for Code Scramble */
+  .code-block-item {
+    @apply bg-stone-900/95 border-l-4 border-l-amber-600 border-y border-r border-stone-800 rounded-lg px-3 py-2.5 font-mono text-sm shadow-md transition-all select-none;
+  }
+
+  /* Clash-Style Wood & Gold Resource Badge */
+  .resource-badge {
+    @apply relative flex items-center gap-3 px-4 py-2 bg-gradient-to-b from-[#3a2213] via-[#2a170c] to-[#1a0e07] border-2 border-[#8c5a2b] rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,215,0,0.3)] select-none;
+  }
+
+  /* 3D Gold Battle Button */
+  .btn-battle-gold {
+    @apply px-6 py-3 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-600 hover:from-amber-200 hover:to-amber-500 text-stone-950 font-black font-clash tracking-wider rounded-xl border-t-2 border-amber-200 border-b-4 border-amber-900 shadow-[0_6px_20px_rgba(245,158,11,0.45),inset_0_1px_1px_rgba(255,255,255,0.6)] active:translate-y-0.5 active:border-b-2 transition-all duration-150 text-center uppercase;
+  }
+
+  /* 3D Blue Fortress Battle Button */
+  .btn-battle-blue {
+    @apply px-6 py-3 bg-gradient-to-b from-blue-400 via-blue-600 to-blue-800 hover:from-blue-300 hover:to-blue-700 text-white font-black font-clash tracking-wider rounded-xl border-t-2 border-blue-200 border-b-4 border-blue-950 shadow-[0_6px_20px_rgba(37,99,235,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:translate-y-0.5 active:border-b-2 transition-all duration-150 text-center uppercase;
+  }
+
+  /* 3D Red Builder Battle Button */
+  .btn-battle-red {
+    @apply px-6 py-3 bg-gradient-to-b from-red-400 via-red-600 to-red-800 hover:from-red-300 hover:to-red-700 text-white font-black font-clash tracking-wider rounded-xl border-t-2 border-red-200 border-b-4 border-red-950 shadow-[0_6px_20px_rgba(220,38,38,0.45),inset_0_1px_1px_rgba(255,255,255,0.5)] active:translate-y-0.5 active:border-b-2 transition-all duration-150 text-center uppercase;
+  }
+
+  /* Parchment Plaque */
+  .parchment-banner {
+    @apply bg-gradient-to-b from-[#2a1a0f] via-[#1f130a] to-[#160c06] border-2 border-[#8c5a2b] shadow-[0_4px_16px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,215,0,0.25)] rounded-lg;
+  }
+
+  /* Metal Rivet */
+  .rivet {
+    @apply w-2 h-2 rounded-full bg-gradient-to-br from-amber-200 via-amber-600 to-amber-950 shadow-[0_1px_2px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.8)];
+  }
+
+  /* Fortress Stone Panels with 3D Bevel and Gold Rivets */
+  .fortress-panel-blue {
+    @apply bg-gradient-to-b from-[#0e2142] via-[#09152b] to-[#040913] border-4 border-[#2b4c7e] rounded-2xl shadow-[0_12px_40px_rgba(10,25,50,0.85),inset_0_1px_2px_rgba(147,197,253,0.3)] relative overflow-hidden;
+  }
+
+  .fortress-panel-red {
+    @apply bg-gradient-to-b from-[#3a1216] via-[#240a0e] to-[#120406] border-4 border-[#7e2b34] rounded-2xl shadow-[0_12px_40px_rgba(50,10,15,0.85),inset_0_1px_2px_rgba(252,165,165,0.3)] relative overflow-hidden;
+  }
+
+  /* Workbench container for Code Scramble */
+  .workbench-container {
+    @apply bg-gradient-to-b from-[#1c130b] via-[#140c06] to-[#0c0703] border-4 border-[#6c401c] rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.9),inset_0_2px_4px_rgba(245,158,11,0.2)] relative;
+  }
+}
+
+/* 3D Dimensional Title Effects */
+.text-3d-gold {
+  color: #ffdf00;
+  text-shadow:
+    0 1px 0 #cc9a00,
+    0 2px 0 #b38600,
+    0 3px 0 #997300,
+    0 4px 0 #806000,
+    0 5px 0 #664d00,
+    0 6px 1px rgba(0, 0, 0, 0.4),
+    0 0 15px rgba(255, 215, 0, 0.5),
+    0 10px 20px rgba(0, 0, 0, 0.9);
+}
+
+.text-3d-stone {
+  color: #e5e7eb;
+  text-shadow:
+    0 1px 0 #9ca3af,
+    0 2px 0 #6b7280,
+    0 3px 0 #4b5563,
+    0 4px 0 #374151,
+    0 5px 0 #1f2937,
+    0 6px 1px rgba(0, 0, 0, 0.6),
+    0 10px 25px rgba(0, 0, 0, 0.95);
+}
+
+.text-3d-banner {
+  color: #ffffff;
+  text-shadow:
+    0 2px 0 #000000,
+    0 4px 0 rgba(0, 0, 0, 0.7),
+    0 6px 12px rgba(0, 0, 0, 0.9);
+}
+
+/* Medieval Fantasy Vignette & Glow */
+.fantasy-glow {
+  text-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+.torch-glow {
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+}
+
+/* Points deduction float animation */
+@keyframes float-deduct {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.9);
+  }
+}
+
+.animate-deduct {
+  animation: float-deduct 0.85s ease-out forwards;
+}
+
+/* Green solved pulse animation */
+@keyframes green-solved-pulse {
+  0% {
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+  }
+}
+
+.solved-glow {
+  animation: green-solved-pulse 1.2s ease-in-out;
+}
+
+

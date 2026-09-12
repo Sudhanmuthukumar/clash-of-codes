@@ -1,0 +1,252 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Admin {
+  id           Int        @id @default(autoincrement())
+  userId       String     @unique @map("user_id")
+  passwordHash String     @map("password_hash")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  auditLogs    AuditLog[]
+
+  @@map("admins")
+}
+
+model Event {
+  id                   Int        @id @default(autoincrement())
+  name                 String
+  year                 String
+  description          String?
+  timeLimitMinutes     Int        @default(45) @map("time_limit_minutes")
+  questionsPerTeam     Int        @default(5) @map("questions_per_team")
+  status               String     @default("not_started")
+  startTime            DateTime?  @map("start_time") @db.Timestamptz
+  endTime              DateTime?  @map("end_time") @db.Timestamptz
+  pauseDurationSeconds Int        @default(0) @map("pause_duration_seconds")
+  pauseStartTime       DateTime?  @map("pause_start_time") @db.Timestamptz
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  teams                Team[]
+  questions            Question[]
+
+  @@map("events")
+}
+
+model Section {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Int      @default(1) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("sections")
+}
+
+model Team {
+  id                 Int                       @id @default(autoincrement())
+  year               String
+  teamName           String                    @unique @map("team_name")
+  member1Name        String                    @map("member_1_name")
+  member1Section     String                    @map("member_1_section")
+  participant1Name   String?                   @map("participant_1_name")
+  participant1Batch  String?                   @map("participant_1_batch")
+  member2Name        String?                   @map("member_2_name")
+  member2Section     String?                   @map("member_2_section")
+  participant2Name   String?                   @map("participant_2_name")
+  participant2Batch  String?                   @map("participant_2_batch")
+  email              String
+  passwordHash       String                    @map("password_hash")
+  eventId            Int                       @map("event_id")
+  status             String                    @default("active")
+  eventStartedAt     DateTime?                 @map("event_started_at") @db.Timestamptz
+  eventSubmittedAt   DateTime?                 @map("event_submitted_at") @db.Timestamptz
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  event              Event                     @relation(fields: [eventId], references: [id])
+  allocations        TeamQuestionAllocation[]
+  csAttempts         CodeScrambleAttempt[]
+  htSubAttempts      HiddenTechSubAttempt[]
+  htFinalAttempts    HiddenTechFinalAttempt[]
+  hints              HintUsage[]
+  scores             ScoreHistory[]
+
+  @@map("teams")
+}
+
+model Question {
+  id                  Int                       @id @default(autoincrement())
+  eventId             Int                       @map("event_id")
+  questionNumber      Int                       @map("question_number")
+  title               String?
+  marks               Int                       @default(10)
+  hint                String?
+  hintPenalty         Int                       @default(0) @map("hint_penalty")
+  isActive            Int                       @default(1) @map("is_active")
+  displayOrder        Int                       @map("display_order")
+  createdAt           DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  event               Event                     @relation(fields: [eventId], references: [id])
+  codeScrambleData    CodeScrambleData?
+  hiddenTechQuestion  HiddenTechQuestion?
+  allocations         TeamQuestionAllocation[]
+  csAttempts          CodeScrambleAttempt[]
+  htFinalAttempts     HiddenTechFinalAttempt[]
+  hints               HintUsage[]
+  scores              ScoreHistory[]
+
+  @@map("questions")
+}
+
+model CodeScrambleData {
+  id                 Int      @id @default(autoincrement())
+  questionId         Int      @unique @map("question_id")
+  problemDescription String?  @map("problem_description")
+  finalCode          String   @map("final_code")
+  shuffledCode       String   @map("shuffled_code")
+  firstLine          String   @map("first_line")
+  firstLinePenalty   Int      @default(1) @map("first_line_penalty")
+  question           Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("code_scramble_data")
+}
+
+model HiddenTechQuestion {
+  id               Int                       @id @default(autoincrement())
+  questionId       Int                       @unique @map("question_id")
+  finalOutput      String                    @map("final_output")
+  finalOutputMarks Int                       @default(5) @map("final_output_marks")
+  question         Question                  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  subQuestions     HiddenTechSubQuestion[]
+
+  @@map("hidden_tech_questions")
+}
+
+model HiddenTechSubQuestion {
+  id                 Int                    @id @default(autoincrement())
+  mainQuestionId     Int                    @map("main_question_id")
+  subQuestionNumber  Int                    @map("sub_question_number")
+  domain             String
+  questionText       String                 @map("question_text")
+  correctAnswer      String                 @map("correct_answer")
+  revealedCharacter  String                 @map("revealed_character")
+  marks              Int                    @default(5)
+  hint               String?
+  hintPenalty        Int                    @default(0) @map("hint_penalty")
+  displayOrder       Int                    @map("display_order")
+  mainQuestion       HiddenTechQuestion     @relation(fields: [mainQuestionId], references: [id], onDelete: Cascade)
+  subAttempts        HiddenTechSubAttempt[]
+  hints              HintUsage[]
+  scores             ScoreHistory[]
+
+  @@map("hidden_tech_sub_questions")
+}
+
+model TeamQuestionAllocation {
+  id         Int      @id @default(autoincrement())
+  teamId     Int      @map("team_id")
+  questionId Int      @map("question_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, questionId])
+  @@map("team_question_allocations")
+}
+
+model CodeScrambleAttempt {
+  id                       Int      @id @default(autoincrement())
+  teamId                   Int      @map("team_id")
+  questionId               Int      @map("question_id")
+  lineOrder                String   @map("line_order")
+  firstLineCorrect         Int      @default(0) @map("first_line_correct")
+  firstLinePenaltyApplied  Int      @default(0) @map("first_line_penalty_applied")
+  swapsCount               Int      @default(0) @map("swaps_count")
+  hintsCount               Int      @default(0) @map("hints_count")
+  currentPoints            Int      @default(100) @map("current_points")
+  isSubmitted              Int      @default(0) @map("is_submitted")
+  isCorrect                Int      @default(0) @map("is_correct")
+  marksAwarded             Int      @default(0) @map("marks_awarded")
+  submittedAt              DateTime @default(now()) @map("submitted_at") @db.Timestamptz
+  team                     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question                 Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, questionId])
+  @@map("code_scramble_attempts")
+}
+
+model HiddenTechSubAttempt {
+  id            Int                   @id @default(autoincrement())
+  teamId        Int                   @map("team_id")
+  subQuestionId Int                   @map("sub_question_id")
+  answer        String
+  isCorrect     Int                   @default(0) @map("is_correct")
+  marksAwarded  Int                   @default(0) @map("marks_awarded")
+  submittedAt   DateTime              @default(now()) @map("submitted_at") @db.Timestamptz
+  team          Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  subQuestion   HiddenTechSubQuestion @relation(fields: [subQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, subQuestionId])
+  @@map("hidden_tech_sub_attempts")
+}
+
+model HiddenTechFinalAttempt {
+  id           Int      @id @default(autoincrement())
+  teamId       Int      @map("team_id")
+  questionId   Int      @map("question_id")
+  finalOutput  String   @map("final_output")
+  isCorrect    Int      @default(0) @map("is_correct")
+  marksAwarded Int      @default(0) @map("marks_awarded")
+  submittedAt  DateTime @default(now()) @map("submitted_at") @db.Timestamptz
+  team         Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, questionId])
+  @@map("hidden_tech_final_attempts")
+}
+
+model HintUsage {
+  id            Int                    @id @default(autoincrement())
+  teamId        Int                    @map("team_id")
+  questionId    Int                    @map("question_id")
+  subQuestionId Int?                   @map("sub_question_id")
+  penalty       Int
+  usedAt        DateTime               @default(now()) @map("used_at") @db.Timestamptz
+  team          Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question      Question               @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  subQuestion   HiddenTechSubQuestion? @relation(fields: [subQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, questionId, subQuestionId])
+  @@map("hint_usage")
+}
+
+model ScoreHistory {
+  id            Int                    @id @default(autoincrement())
+  teamId        Int                    @map("team_id")
+  questionId    Int?                   @map("question_id")
+  subQuestionId Int?                   @map("sub_question_id")
+  action        String
+  pointsChange  Int                    @map("points_change")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  team          Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question      Question?              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  subQuestion   HiddenTechSubQuestion? @relation(fields: [subQuestionId], references: [id], onDelete: Cascade)
+
+  @@map("score_history")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  adminId    Int?     @map("admin_id")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   Int?     @map("target_id")
+  details    String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  admin      Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@map("audit_log")
+}
