@@ -174,7 +174,8 @@ async function runLiveDeploymentAudit() {
     hostname: 'localhost', port: 5000, path: `/api/participant/code-scramble/questions/${csTargetQ}`, method: 'GET',
     headers: csHeaders
   });
-  assert.strictEqual(csInit.data.current_points, undefined, 'current_points NOT in participant response');
+  assert.strictEqual(typeof csInit.data.current_points, 'number', 'current_points visible on Code Scramble score card');
+  assert.strictEqual(csInit.data.current_points, 100, 'Initial points = 100');
   assert.strictEqual(csInit.data.marks, undefined, 'marks NOT in participant response');
 
   // Verify starting points in DB
@@ -191,13 +192,14 @@ async function runLiveDeploymentAudit() {
       headers: csHeaders
     }, { indexA: 0, indexB: 1 });
     assert.strictEqual(swapRes.status, 200);
-    assert.strictEqual(swapRes.data.current_points, undefined, 'current_points omitted from swap response');
+    assert.strictEqual(typeof swapRes.data.current_points, 'number', 'current_points returned in swap response');
+    assert.strictEqual(swapRes.data.current_points, 100 - s, `Swap ${s} updates score card live`);
   }
   csAttempt = await prisma.codeScrambleAttempt.findUnique({
     where: { teamId_questionId: { teamId: csTeamRecord.id, questionId: csTargetQ } }
   });
   assert.strictEqual(csAttempt.currentPoints, 97, '3 swaps: server points must be exactly 97');
-  console.log(`  ✓ 1. After 3 swaps: Server points = ${csAttempt.currentPoints} (Hidden from participant)`);
+  console.log(`  ✓ 1. After 3 swaps: Server points = ${csAttempt.currentPoints} (Live updated on score card)`);
 
   // Use 1 hint -> server state becomes 92
   const hintRes = await request({
@@ -205,7 +207,7 @@ async function runLiveDeploymentAudit() {
     headers: csHeaders
   }, {});
   assert.strictEqual(hintRes.status, 200);
-  assert.strictEqual(hintRes.data.current_points, undefined, 'current_points omitted from hint response');
+  assert.strictEqual(hintRes.data.current_points, 92, 'Hint updates score card live to 92');
   assert.strictEqual(typeof hintRes.data.placed_index, 'number', 'Placed index returned');
   assert.strictEqual(hintRes.data.correct_positions[hintRes.data.placed_index], true, 'Placed line turns green');
 

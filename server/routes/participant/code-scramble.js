@@ -129,7 +129,7 @@ router.get('/questions/:id', async (req, res) => {
         const canSwap = currentPoints > 0 && !isSubmitted;
         const canHint = currentPoints > 5 && !isSubmitted && !allCorrect;
 
-        // Security: NEVER expose final_code, correct order, points, or marks!
+        // Expose problem details and authoritative question points to participant
         res.json({
             id: q.id,
             question_number: q.questionNumber,
@@ -138,6 +138,10 @@ router.get('/questions/:id', async (req, res) => {
             shuffled_lines: shuffledLines,
             current_arrangement: lineOrder,
             correct_positions: correctPositions,
+            starting_points: startingPoints,
+            current_points: currentPoints,
+            swaps_count: swapsCount,
+            hints_count: hintsCount,
             can_swap: canSwap,
             can_hint: canHint,
             is_submitted: isSubmitted
@@ -230,7 +234,12 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
 
             return {
                 saved: true,
+                line_order: line_order,
                 correct_positions: correctPositions,
+                starting_points: startingPoints,
+                current_points: currentPoints,
+                swaps_count: swapsCount,
+                hints_count: hintsCount,
                 can_swap: currentPoints > 0,
                 can_hint: currentPoints > 5 && !allCorrect
             };
@@ -281,12 +290,27 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
         let lineOrder = attempt ? JSON.parse(attempt.lineOrder) : defaultOrder;
         const { indexA, indexB, line_order } = req.body;
 
-        if (Array.isArray(line_order)) {
-            lineOrder = line_order;
-        } else if (typeof indexA === 'number' && typeof indexB === 'number' && indexA >= 0 && indexB >= 0 && indexA < lineOrder.length && indexB < lineOrder.length) {
+        if (typeof indexA === 'number' && typeof indexB === 'number' && indexA >= 0 && indexB >= 0 && indexA < lineOrder.length && indexB < lineOrder.length) {
+            if (indexA === indexB) {
+                const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
+                return res.json({
+                    swapped: false,
+                    line_order: lineOrder,
+                    correct_positions: correctPositions,
+                    starting_points: startingPoints,
+                    current_points: attempt ? attempt.currentPoints : startingPoints,
+                    swaps_count: attempt ? attempt.swapsCount : 0,
+                    hints_count: attempt ? attempt.hintsCount : 0,
+                    can_swap: (attempt ? attempt.currentPoints : startingPoints) > 0,
+                    can_hint: (attempt ? attempt.currentPoints : startingPoints) > 5 && !correctPositions.every(Boolean)
+                });
+            }
+            // True pairwise swap: only lineOrder[indexA] and lineOrder[indexB] exchange positions
             const temp = lineOrder[indexA];
             lineOrder[indexA] = lineOrder[indexB];
             lineOrder[indexB] = temp;
+        } else if (Array.isArray(line_order) && line_order.length === defaultOrder.length) {
+            lineOrder = line_order;
         } else {
             return res.status(400).json({ error: 'Invalid swap indices or line_order' });
         }
@@ -343,6 +367,10 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
                 swapped: true,
                 line_order: lineOrder,
                 correct_positions: correctPositions,
+                starting_points: startingPoints,
+                current_points: currentPoints,
+                swaps_count: swapsCount,
+                hints_count: hintsCount,
                 can_swap: currentPoints > 0,
                 can_hint: currentPoints > 5 && !allCorrect
             };
@@ -485,6 +513,10 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                 line_order: lineOrder,
                 correct_positions: correctPositions,
                 placed_index: targetIdx,
+                starting_points: startingPoints,
+                current_points: currentPoints,
+                swaps_count: swapsCount,
+                hints_count: hintsCount,
                 can_swap: currentPoints > 0,
                 can_hint: currentPoints > 5 && !allCorrect
             };

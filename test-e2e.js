@@ -169,9 +169,8 @@ async function runTests() {
     });
     assert(qDetail.status === 200, 'Participant can fetch assigned question details');
     assert(qDetail.body.final_code === undefined, 'Security: final_code reference is NEVER exposed to participant');
-    assert(qDetail.body.current_points === undefined, 'Security: current_points is NEVER exposed to participant');
-    assert(qDetail.body.starting_points === undefined, 'Security: starting_points is NEVER exposed to participant');
-    assert(qDetail.body.points === undefined, 'Security: points is NEVER exposed to participant');
+    assert(typeof qDetail.body.current_points === 'number', 'Score card: current_points is visible on Code Scramble');
+    assert(typeof qDetail.body.starting_points === 'number', 'Score card: starting_points is visible on Code Scramble');
 
     // Test: Saving with same order doesn't decrement points / swaps
     const initialArrangement = qDetail.body.current_arrangement;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '../../components/Toast';
 import api from '../../utils/api';
@@ -18,7 +18,16 @@ import {
   IconSwap 
 } from '../../components/FantasyIcons';
 
-const SortableLine = ({ id, content, lineNumber, isCorrectPosition, isSubmitted, isLocked }) => {
+const SortableLine = ({ 
+  id, 
+  content, 
+  lineNumber, 
+  isCorrectPosition, 
+  isSelected, 
+  isSubmitted, 
+  isLocked, 
+  onLineClick 
+}) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: isSubmitted || isLocked,
@@ -31,7 +40,9 @@ const SortableLine = ({ id, content, lineNumber, isCorrectPosition, isSubmitted,
   };
 
   let containerClass = 'bg-gradient-to-r from-[#20150d] via-[#1a100a] to-[#140b07] border-2 border-[#5c371f] hover:border-amber-500/80 shadow-md';
-  if (isCorrectPosition) {
+  if (isSelected) {
+    containerClass = 'bg-gradient-to-r from-[#4d2d14] via-[#3a200e] to-[#2b170a] border-2 border-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.6)] ring-2 ring-amber-400 scale-[1.01] text-amber-100';
+  } else if (isCorrectPosition) {
     containerClass = 'bg-gradient-to-r from-[#06331e] via-[#094127] to-[#042415] border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-emerald-100 solved-glow';
   } else if (isDragging) {
     containerClass = 'bg-gradient-to-r from-[#382012] to-[#2a170d] border-2 border-amber-400 shadow-2xl scale-[1.02]';
@@ -41,27 +52,38 @@ const SortableLine = ({ id, content, lineNumber, isCorrectPosition, isSubmitted,
     <div
       ref={setNodeRef}
       style={style}
+      onClick={() => {
+        if (!isSubmitted && !isLocked && onLineClick) {
+          onLineClick(lineNumber - 1);
+        }
+      }}
       className={`flex items-stretch rounded-xl transition-all mb-2.5 overflow-hidden select-none border-b-4 relative ${
-        isCorrectPosition 
+        isSubmitted || isLocked ? 'cursor-not-allowed opacity-80' : 'cursor-pointer hover:border-amber-400/90'
+      } ${
+        isSelected
+          ? 'border-b-amber-400'
+          : isCorrectPosition 
           ? 'border-b-emerald-700' 
           : 'border-b-[#0e0704]'
       } ${containerClass}`}
+      title={isSubmitted ? 'Challenge submitted' : isLocked ? 'Points exhausted (0 pts) - locked' : isSelected ? 'Line selected. Click another line to swap, or click again to deselect.' : 'Click to select for swap (-1 pt) or drag onto another line.'}
     >
       {/* Tactical Builder Drag Handle */}
       <div
         {...attributes}
         {...listeners}
+        onClick={(e) => e.stopPropagation()}
         className={`px-3.5 py-3 flex items-center justify-center bg-black/40 border-r border-[#452814] text-amber-200/70 transition-colors ${
           isSubmitted || isLocked ? 'cursor-not-allowed opacity-30' : 'cursor-grab active:cursor-grabbing hover:text-amber-300 hover:bg-black/60'
         }`}
-        title={isSubmitted ? 'Challenge submitted' : isLocked ? 'Points exhausted (0 pts) - locked' : 'Drag to swap (-1 pt)'}
+        title={isSubmitted ? 'Challenge submitted' : isLocked ? 'Points exhausted (0 pts) - locked' : 'Drag onto another line to swap (-1 pt)'}
       >
         <span className="font-mono text-xs select-none">🧱 ⋮⋮</span>
       </div>
 
       {/* Carved Line Number Tile */}
       <div className={`px-3.5 py-3 font-mono text-xs bg-black/30 select-none border-r border-[#452814] min-w-[2.75rem] text-center flex items-center justify-center font-bold ${
-        isCorrectPosition ? 'text-emerald-300 font-black' : 'text-amber-400'
+        isSelected ? 'text-amber-200 font-black bg-amber-900/60' : isCorrectPosition ? 'text-emerald-300 font-black' : 'text-amber-400'
       }`}>
         {lineNumber}
       </div>
@@ -71,8 +93,16 @@ const SortableLine = ({ id, content, lineNumber, isCorrectPosition, isSubmitted,
         {content}
       </div>
 
+      {/* Selection Feedback Badge */}
+      {isSelected && (
+        <div className="px-3.5 py-1 flex items-center gap-1.5 text-amber-200 text-xs font-black bg-amber-900/90 border-l-2 border-amber-400 uppercase tracking-wider font-clash shadow-inner animate-pulse">
+          <IconSwap className="w-3.5 h-3.5 text-amber-300" />
+          <span>SWAP READY</span>
+        </div>
+      )}
+
       {/* Correct Position Status Badge */}
-      {isCorrectPosition && (
+      {!isSelected && isCorrectPosition && (
         <div className="px-3.5 py-1 flex items-center gap-1.5 text-emerald-300 text-xs font-black bg-emerald-900/80 border-l-2 border-emerald-500 uppercase tracking-wider font-clash shadow-inner">
           <span className="text-sm">✓</span>
           <span>CORRECT</span>
@@ -88,6 +118,11 @@ const ParticipantCodeScramble = () => {
   const [currentQ, setCurrentQ] = useState(null);
   const [lines, setLines] = useState([]); // [{ id, content, origIndex }]
   const [correctPositions, setCorrectPositions] = useState([]);
+  const [startingPoints, setStartingPoints] = useState(100);
+  const [currentPoints, setCurrentPoints] = useState(100);
+  const [swapsCount, setSwapsCount] = useState(0);
+  const [hintsCount, setHintsCount] = useState(0);
+  const [selectedLineIndex, setSelectedLineIndex] = useState(null);
   const [canSwap, setCanSwap] = useState(true);
   const [canHint, setCanHint] = useState(true);
   const [status, setStatus] = useState(null);
@@ -134,6 +169,7 @@ const ParticipantCodeScramble = () => {
   const loadQuestion = async (id) => {
     try {
       setActiveId(id);
+      setSelectedLineIndex(null);
       const res = await api.get(`/participant/code-scramble/questions/${id}`);
       const data = res.data;
       setCurrentQ(data);
@@ -149,6 +185,10 @@ const ParticipantCodeScramble = () => {
 
       setLines(mappedLines);
       setCorrectPositions(data.correct_positions || []);
+      setStartingPoints(typeof data.starting_points === 'number' ? data.starting_points : 100);
+      setCurrentPoints(typeof data.current_points === 'number' ? data.current_points : 100);
+      setSwapsCount(data.swaps_count || 0);
+      setHintsCount(data.hints_count || 0);
       setCanSwap(data.can_swap !== false);
       setCanHint(data.can_hint !== false);
     } catch (err) {
@@ -156,32 +196,66 @@ const ParticipantCodeScramble = () => {
     }
   };
 
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id || currentQ?.is_submitted || !canSwap) return;
+  // TRUE PAIRWISE SWAP EXECUTION
+  const executeSwap = async (indexA, indexB) => {
+    if (indexA === indexB || currentQ?.is_submitted || !canSwap) return;
 
-    const oldIndex = lines.findIndex(item => item.id === active.id);
-    const newIndex = lines.findIndex(item => item.id === over.id);
-
-    const newLines = arrayMove(lines, oldIndex, newIndex);
+    // 1. Optimistic UI update: ONLY the two selected lines exchange positions
+    const newLines = [...lines];
+    const temp = newLines[indexA];
+    newLines[indexA] = newLines[indexB];
+    newLines[indexB] = temp;
     setLines(newLines);
+    setSelectedLineIndex(null);
 
-    // Save arrangement to server
-    const lineOrderIndices = newLines.map(l => l.origIndex);
+    // 2. Server validation and score deduction (-1 point)
     try {
-      const res = await api.post(`/participant/code-scramble/questions/${activeId}/save`, {
-        line_order: lineOrderIndices,
+      const res = await api.post(`/participant/code-scramble/questions/${activeId}/swap`, {
+        indexA,
+        indexB,
+        line_order: newLines.map(l => l.origIndex),
       });
+
       if (res.data.correct_positions) {
         setCorrectPositions(res.data.correct_positions);
+      }
+      if (typeof res.data.current_points === 'number') {
+        setCurrentPoints(res.data.current_points);
+      }
+      if (typeof res.data.swaps_count === 'number') {
+        setSwapsCount(res.data.swaps_count);
       }
       setCanSwap(res.data.can_swap !== false);
       setCanHint(res.data.can_hint !== false);
     } catch (err) {
-      if (err.response?.data?.error) {
-        toast.error(err.response.data.error);
-      }
+      toast.error(err.response?.data?.error || 'Failed to execute swap');
       loadQuestion(activeId);
+    }
+  };
+
+  // Click-to-swap handler
+  const handleLineClick = (idx) => {
+    if (currentQ?.is_submitted || !canSwap) return;
+
+    if (selectedLineIndex === null) {
+      setSelectedLineIndex(idx);
+    } else if (selectedLineIndex === idx) {
+      setSelectedLineIndex(null);
+    } else {
+      executeSwap(selectedLineIndex, idx);
+    }
+  };
+
+  // Drag-and-drop pairwise swap handler (TRUE SWAP, never shifts)
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || currentQ?.is_submitted || !canSwap) return;
+
+    const indexA = lines.findIndex(item => item.id === active.id);
+    const indexB = lines.findIndex(item => item.id === over.id);
+
+    if (indexA !== -1 && indexB !== -1) {
+      executeSwap(indexA, indexB);
     }
   };
 
@@ -193,6 +267,9 @@ const ParticipantCodeScramble = () => {
       });
       if (res.data.correct_positions) {
         setCorrectPositions(res.data.correct_positions);
+      }
+      if (typeof res.data.current_points === 'number') {
+        setCurrentPoints(res.data.current_points);
       }
       setCanSwap(res.data.can_swap !== false);
       setCanHint(res.data.can_hint !== false);
@@ -222,7 +299,10 @@ const ParticipantCodeScramble = () => {
       const res = await api.post(`/participant/code-scramble/questions/${activeId}/hint`);
       setShowHintModal(false);
       if (res.data.success) {
-        toast.success('Clue applied! Correct line placed in position.');
+        toast.success('Clue applied! Correct line placed in position (-5 pts).');
+        if (typeof res.data.current_points === 'number') {
+          setCurrentPoints(res.data.current_points);
+        }
         loadQuestion(activeId);
       } else {
         toast.info(res.data.message || res.data.error || 'No clue available');
@@ -232,7 +312,7 @@ const ParticipantCodeScramble = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Loading Code Scramble...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-400 font-sans">Loading Code Scramble...</div>;
 
   const correctCount = correctPositions.filter(Boolean).length;
   const totalCount = lines.length;
@@ -292,24 +372,40 @@ const ParticipantCodeScramble = () => {
         <div className="flex-grow flex flex-col overflow-hidden max-w-5xl mx-auto w-full p-4">
           
           {/* Header & Controls inside Workbench Container */}
-          <div className="workbench-container p-4 mb-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+          <div className="workbench-container p-4 mb-3.5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
             <span className="rivet absolute top-2 left-2"></span>
             <span className="rivet absolute top-2 right-2"></span>
 
             <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
-              {/* Clash-style Battle Challenge Badge */}
-              <div className="relative resource-badge border-2 border-amber-500 shadow-xl shrink-0">
-                <IconStar className="w-7 h-7 text-amber-400 filter drop-shadow" />
+              {/* RESTORED CODE SCRAMBLE SCORE CARD */}
+              <div className="relative resource-badge border-2 border-amber-500 shadow-xl shrink-0 bg-gradient-to-b from-[#2a170d] via-[#1a0e07] to-[#120904] px-4 py-2 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-400/50 flex items-center justify-center shrink-0">
+                  <IconStar className="w-7 h-7 text-amber-400 filter drop-shadow" />
+                </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300 block font-clash">
-                    CHALLENGE STATUS
+                    CHALLENGE SCORE
                   </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black font-clash text-amber-100 drop-shadow">
-                      {correctCount === totalCount ? 'COMPLETE' : `${correctCount}/${totalCount}`}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-black font-clash text-amber-100 drop-shadow">
+                      {currentPoints}
                     </span>
-                    <span className="text-xs font-clash text-amber-400">ALIGNED</span>
+                    <span className="text-xs font-clash text-amber-400 font-bold">
+                      / {startingPoints} PTS
+                    </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Tactical Alignment Badge */}
+              <div className="resource-badge border border-[#5c371f] bg-black/40 px-3 py-2 rounded-xl shrink-0 hidden sm:flex items-center gap-2">
+                <div>
+                  <span className="text-[9px] uppercase font-bold tracking-wider text-stone-400 block font-clash">
+                    ALIGNMENT
+                  </span>
+                  <span className="text-sm font-black font-clash text-emerald-400">
+                    {correctCount}/{totalCount} ALIGNED
+                  </span>
                 </div>
               </div>
 
@@ -324,7 +420,7 @@ const ParticipantCodeScramble = () => {
                   )}
                 </div>
                 <p className="text-xs text-stone-400 mt-1 font-sans">
-                  Rearrange the scrambled Python code blocks on your workbench into the correct operational order.
+                  Rearrange the scrambled Python code blocks into the correct operational order.
                 </p>
               </div>
             </div>
@@ -336,16 +432,16 @@ const ParticipantCodeScramble = () => {
                   <button
                     onClick={() => setShowHintModal(true)}
                     className="px-3.5 py-2 bg-gradient-to-b from-[#3a2517] to-[#24150c] hover:from-[#4d3220] hover:to-[#331e12] border-2 border-amber-500 text-amber-300 text-xs font-clash uppercase tracking-wider rounded-xl shadow-md flex items-center gap-1.5 active:translate-y-0.5 transition-all"
-                    title="Request clue to place next correct line"
+                    title="Request clue to place next correct line (-5 pts)"
                   >
-                    <IconHammer className="w-3.5 h-3.5 text-amber-300" />
-                    <span>REQUEST CLUE</span>
+                    <IconLightbulb className="w-3.5 h-3.5 text-amber-300" />
+                    <span>REQUEST CLUE (-5 PTS)</span>
                   </button>
                 ) : (
                   <button
                     disabled
                     className="px-3.5 py-2 bg-stone-950/80 border border-stone-800 text-stone-500 text-xs font-clash uppercase tracking-wider rounded-xl opacity-50 cursor-not-allowed flex items-center gap-1.5"
-                    title="Clue unavailable"
+                    title={currentPoints <= 5 ? "Insufficient points for clue (≤5 pts)" : "Clue unavailable"}
                   >
                     <IconLock className="w-3.5 h-3.5 text-stone-500" />
                     <span>CLUE UNAVAILABLE</span>
@@ -411,29 +507,38 @@ const ParticipantCodeScramble = () => {
                 <IconSwords className="w-6 h-6 text-red-400 shrink-0" />
                 <span>
                   <strong className="font-clash text-sm text-red-300 block uppercase tracking-wider">
-                    SWAPS LOCKED FOR THIS CHALLENGE
+                    POINT POOL EXHAUSTED (0 PTS) &bull; SWAPS LOCKED
                   </strong>
-                  Further block reordering and clues are locked. You may review and finalize your arrangement.
+                  Further line swaps and clues are locked for this challenge. You may review and finalize your arrangement.
                 </span>
               </span>
             </div>
           )}
 
-          {/* Builder Information Strip */}
-          <div className="bg-stone-900/60 border border-stone-800/80 rounded-lg px-4 py-2 mb-3 text-xs flex items-center justify-between text-stone-400">
-            <div className="flex items-center gap-3">
-              <span>Code Blocks: <strong className="text-amber-200 font-mono">{totalCount}</strong></span>
-              <span>&bull;</span>
-              <span>Correct Positions: <strong className="text-emerald-400 font-mono">{correctCount} / {totalCount}</strong></span>
+          {/* Builder True Swap Guidance Banner */}
+          <div className="bg-stone-900/80 border border-stone-800 rounded-lg px-4 py-2 mb-2.5 text-xs flex flex-wrap items-center justify-between gap-2 text-stone-300">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 text-sm">⚔️</span>
+              <span>
+                <strong>TRUE SWAP:</strong> Click line A then line B to exchange their positions (<strong>−1 pt</strong>), or drag line A onto line B.
+              </span>
             </div>
-            <div className="text-[11px] text-stone-400 hidden sm:flex items-center gap-3">
-              <span className="flex items-center gap-1"><IconSwap className="w-3 h-3 text-amber-400" /> Drag &amp; drop blocks to arrange</span>
-              <span>&bull;</span>
-              <span className="flex items-center gap-1"><IconLightbulb className="w-3 h-3 text-amber-400" /> Clues automatically position next line</span>
-            </div>
+            {selectedLineIndex !== null && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-clash font-bold text-amber-200 bg-amber-900/80 border border-amber-400 px-2.5 py-0.5 rounded animate-pulse">
+                  Line #{selectedLineIndex + 1} Selected &bull; Click second line to swap
+                </span>
+                <button
+                  onClick={() => setSelectedLineIndex(null)}
+                  className="text-xs text-stone-400 hover:text-stone-200 underline font-sans"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Interactive Workspace: Draggable Building Blocks */}
+          {/* Interactive Workspace: Draggable & Clickable Building Blocks */}
           <div className="flex-grow overflow-y-auto bg-[#100b07] border-2 border-[#5c371f] rounded-xl p-4 shadow-[inset_0_4px_12px_rgba(0,0,0,0.85)]">
             <DndContext
               sensors={sensors}
@@ -452,8 +557,10 @@ const ParticipantCodeScramble = () => {
                       content={line.content}
                       lineNumber={index + 1}
                       isCorrectPosition={!!correctPositions[index]}
+                      isSelected={selectedLineIndex === index}
                       isSubmitted={currentQ.is_submitted}
                       isLocked={!canSwap}
+                      onLineClick={handleLineClick}
                     />
                   ))}
                 </div>
@@ -462,7 +569,7 @@ const ParticipantCodeScramble = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-grow flex items-center justify-center text-gray-500">
+        <div className="flex-grow flex items-center justify-center text-gray-500 font-sans">
           Select a question to begin
         </div>
       )}
@@ -482,9 +589,9 @@ const ParticipantCodeScramble = () => {
         isOpen={showHintModal}
         onClose={() => setShowHintModal(false)}
         onConfirm={handleRequestHint}
-        title="Request Builder's Clue?"
-        message="Requesting a clue will automatically identify the next unresolved line, place it in the correct position, and turn it green."
-        confirmText="Use Clue"
+        title="Request Builder's Clue (-5 Points)?"
+        message={`Requesting a clue will deduct 5 points from this challenge (from ${currentPoints} to ${Math.max(0, currentPoints - 5)} PTS) and automatically position the next correct line.`}
+        confirmText="Use Clue (-5 Pts)"
         confirmStyle="warning"
       />
     </div>

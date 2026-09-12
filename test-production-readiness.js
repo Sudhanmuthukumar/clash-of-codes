@@ -93,8 +93,8 @@ async function runProductionReadinessTests() {
   });
   assert.strictEqual(qDetail.status, 200);
   assert.strictEqual(qDetail.data.final_code, undefined, 'final_code MUST NEVER be exposed in participant API');
-  assert.strictEqual(qDetail.data.current_points, undefined, 'current_points MUST NEVER be exposed in participant API');
-  assert.strictEqual(qDetail.data.starting_points, undefined, 'starting_points MUST NEVER be exposed in participant API');
+  assert.strictEqual(typeof qDetail.data.current_points, 'number', 'current_points is visible on score card');
+  assert.strictEqual(typeof qDetail.data.starting_points, 'number', 'starting_points is visible on score card');
   assert.strictEqual(qDetail.data.marks, undefined, 'marks MUST NEVER be exposed in participant API');
   assert.strictEqual(qDetail.data.marks_awarded, undefined, 'marks_awarded MUST NEVER be exposed in participant API');
   assert.strictEqual(qDetail.data.penalty, undefined, 'penalty MUST NEVER be exposed in participant API');
@@ -103,11 +103,11 @@ async function runProductionReadinessTests() {
   assert(qDetail.data.problem_description !== undefined, 'problem_description should be present');
   assert(typeof qDetail.data.problem_description === 'string', 'problem_description should be a string');
   assert(qDetail.data.problem_description.length > 0, 'problem_description should not be empty');
-  console.log(`  ✓ PASS: Participant received problem_description without final_code or score leakage`);
+  console.log(`  ✓ PASS: Participant received problem_description and score card points without final_code leakage`);
   passed++;
 
-  // 4. Test Save and Clue Endpoints strictly DO NOT leak points
-  console.log('\n--- Test 3: Save and Clue Endpoints Do NOT Leak Score to Participant ---');
+  // 4. Test Save and Clue Endpoints return live updated score
+  console.log('\n--- Test 3: Save and Clue Endpoints Return Live Updated Score for Score Card ---');
   const saveCheck = await request({
     hostname: 'localhost',
     port: 5000,
@@ -118,7 +118,7 @@ async function runProductionReadinessTests() {
     line_order: qDetail.data.current_arrangement
   });
   assert.strictEqual(saveCheck.status, 200);
-  assert.strictEqual(saveCheck.data.current_points, undefined, 'Save endpoint MUST NEVER return current_points');
+  assert.strictEqual(typeof saveCheck.data.current_points, 'number', 'Save endpoint returns current_points');
   assert.strictEqual(saveCheck.data.marks, undefined, 'Save endpoint MUST NEVER return marks');
 
   const clueCheck = await request({
@@ -129,9 +129,9 @@ async function runProductionReadinessTests() {
     headers: participantHeaders
   }, {});
   assert.strictEqual(clueCheck.status, 200);
-  assert.strictEqual(clueCheck.data.current_points, undefined, 'Clue endpoint MUST NEVER return current_points');
+  assert.strictEqual(typeof clueCheck.data.current_points, 'number', 'Clue endpoint returns current_points');
   assert.strictEqual(clueCheck.data.marks, undefined, 'Clue endpoint MUST NEVER return marks');
-  console.log('  ✓ PASS: Save and clue responses strictly withhold all score/points/marks information');
+  console.log('  ✓ PASS: Save and clue responses return authoritative live points to update score card');
   passed++;
 
   // 5. Server-Authoritative Timer & Expiry Enforcement
