@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
@@ -60,10 +61,34 @@ app.use('/api/participant/code-scramble', require('./routes/participant/code-scr
 app.use('/api/participant/hidden-tech', require('./routes/participant/hidden-tech'));
 app.use('/api/participant/event', require('./routes/participant/event'));
 
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
+// Root API endpoint
+app.get('/', (req, res) => {
+    res.json({
+        name: 'CLASH OF CODES API',
+        status: 'online',
+        version: '1.0.0',
+        health: '/api/health'
+    });
+});
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
+// Optional static file serving only if explicitly enabled and directory exists
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+if (process.env.SERVE_STATIC === 'true' && fs.existsSync(clientDistPath)) {
+    app.use(express.static(clientDistPath));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+}
+
+// 404 handler for unknown API routes
+app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Fallback for all other undefined routes
+app.use((req, res) => {
+    res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // Production error handler
