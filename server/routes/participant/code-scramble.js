@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { prisma } = require('../../db/database');
 const { requireParticipant, requireEventActive, authenticateToken } = require('../../middleware/auth');
-const { isQuestionAllocated } = require('../../services/questionAllocator');
+const { isQuestionAllocated, allocateQuestions } = require('../../services/questionAllocator');
 const { actionLimiter, submissionLimiter } = require('../../middleware/rateLimiter');
 const {
     getValidArrangements,
@@ -16,16 +16,24 @@ router.use(authenticateToken, requireParticipant, requireEventActive);
 router.get('/questions', async (req, res) => {
     try {
         const teamId = req.user.teamId;
+        const eventId = req.user.eventId;
         const allocations = await prisma.teamQuestionAllocation.findMany({
-            where: { teamId },
+            where: { 
+                teamId,
+                question: eventId ? { eventId } : undefined
+            },
             select: { questionId: true }
         });
-        const qIds = allocations.map(a => a.questionId);
+        let qIds = allocations.map(a => a.questionId);
+        if (!qIds.length && eventId) {
+            qIds = await allocateQuestions(teamId, eventId);
+        }
         if (!qIds.length) return res.json([]);
 
         const questions = await prisma.question.findMany({
             where: {
                 id: { in: qIds },
+                ...(eventId ? { eventId } : {}),
                 codeScrambleData: { isNot: null }
             },
             select: {

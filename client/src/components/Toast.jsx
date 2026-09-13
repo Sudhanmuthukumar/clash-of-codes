@@ -17,13 +17,17 @@ export const ToastProvider = ({ children }) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const clearToasts = useCallback(() => {
+    setToasts([]);
+  }, []);
+
   const success = useCallback((msg) => addToast(msg, 'success'), [addToast]);
   const error = useCallback((msg) => addToast(msg, 'error'), [addToast]);
   const info = useCallback((msg) => addToast(msg, 'info'), [addToast]);
   const warning = useCallback((msg) => addToast(msg, 'warning'), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ addToast, success, error, info, warning }}>
+    <ToastContext.Provider value={{ addToast, removeToast, clearToasts, success, error, info, warning }}>
       {children}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map(toast => (

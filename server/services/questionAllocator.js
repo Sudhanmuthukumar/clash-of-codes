@@ -2,7 +2,10 @@ const { prisma } = require('../db/database');
 
 async function allocateQuestions(teamId, eventId) {
     const existing = await prisma.teamQuestionAllocation.findMany({
-        where: { teamId },
+        where: { 
+            teamId,
+            question: { eventId }
+        },
         select: { questionId: true }
     });
 
@@ -32,7 +35,10 @@ async function allocateQuestions(teamId, eventId) {
     await prisma.$transaction(async (tx) => {
         // Double check inside transaction to prevent race conditions
         const recheck = await tx.teamQuestionAllocation.findMany({
-            where: { teamId },
+            where: { 
+                teamId,
+                question: { eventId }
+            },
             select: { questionId: true }
         });
         if (recheck.length > 0) return;
@@ -48,7 +54,10 @@ async function allocateQuestions(teamId, eventId) {
     });
 
     const finalAllocations = await prisma.teamQuestionAllocation.findMany({
-        where: { teamId },
+        where: { 
+            teamId,
+            question: { eventId }
+        },
         select: { questionId: true }
     });
 

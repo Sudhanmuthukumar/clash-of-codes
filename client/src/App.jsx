@@ -1,9 +1,21 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { ToastProvider } from './components/Toast';
+import { ToastProvider, useToast } from './components/Toast';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+
+// Automatically clear lingering toasts when changing routes
+function RouteToastCleaner() {
+  const location = useLocation();
+  const { clearToasts } = useToast();
+
+  useEffect(() => {
+    clearToasts();
+  }, [location.pathname, clearToasts]);
+
+  return null;
+}
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -25,6 +37,7 @@ function App() {
   return (
     <AuthProvider>
       <ToastProvider>
+        <RouteToastCleaner />
         <div className="min-h-screen bg-dark-950 flex flex-col font-sans">
           <Navbar />
           <main className="flex-grow flex flex-col">

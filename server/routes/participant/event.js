@@ -8,9 +8,12 @@ const { getValidArrangements, isArrangementValid } = require('../../utils/scramb
 router.use(authenticateToken, requireParticipant);
 
 // Helper to finalize and grade all allocated Code Scramble questions for a team
-async function finalizeCodeScrambleForTeam(teamId) {
+async function finalizeCodeScrambleForTeam(teamId, eventId) {
     const allocations = await prisma.teamQuestionAllocation.findMany({
-        where: { teamId },
+        where: { 
+            teamId,
+            ...(eventId ? { question: { eventId } } : {})
+        },
         include: {
             question: {
                 include: { codeScrambleData: true }
@@ -113,7 +116,7 @@ router.post('/test-session/start', async (req, res) => {
                         data: { status: 'time_expired', eventSubmittedAt: now }
                     });
                     if (team.year === '2nd Year') {
-                        await finalizeCodeScrambleForTeam(teamId);
+                        await finalizeCodeScrambleForTeam(teamId, eventId);
                     }
                 }
                 return res.status(403).json({
@@ -235,7 +238,7 @@ router.post('/violation', async (req, res) => {
 
             const team = await prisma.team.findUnique({ where: { id: teamId } });
             if (team && team.year === '2nd Year') {
-                await finalizeCodeScrambleForTeam(teamId);
+                await finalizeCodeScrambleForTeam(teamId, eventId);
             }
 
             return res.json({
@@ -314,7 +317,7 @@ router.get('/status', async (req, res) => {
                         data: { status: 'time_expired', eventSubmittedAt: server_time }
                     });
                     if (team.year === '2nd Year') {
-                        await finalizeCodeScrambleForTeam(team.id);
+                        await finalizeCodeScrambleForTeam(team.id, event.id);
                     }
                 }
             } else if (testSession.status === 'ACTIVE') {
@@ -334,7 +337,7 @@ router.get('/status', async (req, res) => {
                 });
                 team.status = 'time_expired';
                 if (team.year === '2nd Year') {
-                    await finalizeCodeScrambleForTeam(team.id);
+                    await finalizeCodeScrambleForTeam(team.id, event.id);
                 }
             }
         } else {
@@ -374,7 +377,7 @@ router.post('/submit', submissionLimiter, async (req, res) => {
 
         // If Code Scramble (2nd Year), finalize and grade all allocated questions
         if (team.year === '2nd Year') {
-            await finalizeCodeScrambleForTeam(team.id);
+            await finalizeCodeScrambleForTeam(team.id, eventId);
         }
 
         await prisma.team.update({

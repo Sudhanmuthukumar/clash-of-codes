@@ -6,12 +6,13 @@ const { Parser } = require('json2csv');
 
 router.use(authenticateToken, requireAdmin);
 
-async function calculateTeamResults(teamId) {
+async function calculateTeamResults(teamId, eventId) {
     const team = await prisma.team.findUnique({
         where: { id: teamId },
         include: {
             event: true,
             allocations: {
+                where: eventId ? { question: { eventId } } : undefined,
                 include: {
                     question: {
                         include: {
@@ -214,14 +215,19 @@ async function calculateTeamResults(teamId) {
 
 async function getEventResults(eventId) {
     const teams = await prisma.team.findMany({
-        where: eventId ? { eventId } : undefined,
+        where: eventId ? {
+            OR: [
+                { eventId },
+                { allocations: { some: { question: { eventId } } } }
+            ]
+        } : undefined,
         select: { id: true }
     });
 
     const results = [];
     for (const t of teams) {
-        const res = await calculateTeamResults(t.id);
-        if (res) results.push(res);
+        const res = await calculateTeamResults(t.id, eventId);
+        if (res && (res.questions_allocated > 0 || !eventId)) results.push(res);
     }
 
     // Sort: marks DESC, time ASC

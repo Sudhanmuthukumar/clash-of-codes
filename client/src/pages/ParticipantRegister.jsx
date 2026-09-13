@@ -216,26 +216,25 @@ const ParticipantRegister = () => {
             />
           </div>
 
-          {/* Year & Round Selection */}
+          {/* Year & Battle Track Selection */}
           <div>
             <label className="label flex justify-between items-center">
-              <span>BATTLE TRACK & ROUND</span>
+              <span>BATTLE TRACK</span>
               <span className="text-[11px] text-stone-500">Determines battle arena</span>
             </label>
             <select
               name="round_selection"
               className="input-field font-medium text-sm"
-              value={formData.event_id || (formData.year === '3rd Year' ? 2 : 1)}
+              value={formData.year}
               onChange={e => {
-                const val = parseInt(e.target.value);
-                const yr = val === 2 ? '3rd Year' : '2nd Year';
+                const yr = e.target.value;
+                const val = yr === '3rd Year' ? 2 : 1;
                 setFormData(prev => ({ ...prev, event_id: val, year: yr }));
               }}
               required
             >
-              <option value={1}>2nd Year &rarr; CODE SCRAMBLE: Round 1</option>
-              <option value={3}>2nd Year &rarr; CODE SCRAMBLE: Round 2</option>
-              <option value={2}>3rd Year &rarr; CRACK THE CODE (Code Invasion)</option>
+              <option value="2nd Year">2nd Year &rarr; CODE SCRAMBLE (Round 1 &amp; Round 2)</option>
+              <option value="3rd Year">3rd Year &rarr; CRACK THE CODE (Code Invasion)</option>
             </select>
           </div>
 

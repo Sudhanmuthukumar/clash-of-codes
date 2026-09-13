@@ -76,17 +76,22 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
       setWarningModal(null);
     } catch (err) {
       console.warn('Fullscreen request rejected or not supported:', err);
-      setHasEnteredFullscreen(true);
+      // Even if browser restricts programmatic gesture, set state if element is fullscreen
+      if (document.fullscreenElement) {
+        setIsFullscreen(true);
+        setHasEnteredFullscreen(true);
+        setWarningModal(null);
+      }
     }
   };
 
-  // 3. Server-Authoritative Violation Reporting (Debounced by 2.5s)
+  // 3. Server-Authoritative Violation Reporting (Debounced by 3.0s)
   const reportViolation = useCallback(async (reason) => {
     if (isTerminatedRef.current) return;
 
     const now = Date.now();
-    // Debounce: Merge co-occurring fullscreen + visibility events within 2500ms
-    if (now - lastViolationTimeRef.current < 2500 || isReportingRef.current) {
+    // Debounce: Merge co-occurring fullscreen + visibility events within 3000ms
+    if (now - lastViolationTimeRef.current < 3000 || isReportingRef.current) {
       return;
     }
     lastViolationTimeRef.current = now;
@@ -96,9 +101,9 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
       const res = await api.post('/participant/event/violation', { reason });
       const data = res.data;
 
-      if (data.terminated) {
+      if (data.terminated || data.is_terminated) {
         setIsTerminated(true);
-        setTerminationReason(data.message);
+        setTerminationReason(data.message || 'Maximum violations reached.');
         isTerminatedRef.current = true;
         setWarningModal(null);
         if (onSessionTerminated) onSessionTerminated();
@@ -110,9 +115,9 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
         setSession(prev => prev ? { ...prev, violationCount: data.violationCount } : null);
       }
     } catch (err) {
-      if (err.response?.data?.is_terminated) {
+      if (err.response?.data?.is_terminated || err.response?.data?.terminated) {
         setIsTerminated(true);
-        setTerminationReason(err.response.data.message || 'Maximum violations reached.');
+        setTerminationReason(err.response?.data?.message || err.response?.data?.reason || 'Maximum violations reached.');
         isTerminatedRef.current = true;
         setWarningModal(null);
         if (onSessionTerminated) onSessionTerminated();
@@ -146,8 +151,8 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
 
     // Window blur listener
     const handleWindowBlur = () => {
-      if (hasEnteredFullscreen && !isTerminatedRef.current) {
-        reportViolation('Window lost focus');
+      if (hasEnteredFullscreen && !isTerminatedRef.current && !document.fullscreenElement) {
+        reportViolation('Window lost focus outside fullscreen');
       }
     };
 
@@ -293,14 +298,19 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
         </div>
       </div>
 
-      {/* 2. Main Children Content */}
-      <div className="flex-grow flex flex-col">
+      {/* 2. Main Children Content (Strictly blocked and disabled when not in fullscreen) */}
+      <div 
+        className={`flex-grow flex flex-col transition-opacity duration-200 ${
+          !isFullscreen ? 'pointer-events-none select-none filter blur-sm opacity-20' : ''
+        }`}
+        aria-hidden={!isFullscreen}
+      >
         {children}
       </div>
 
-      {/* 3. Initial Fullscreen Required Modal */}
-      {showInitialFullscreenPrompt && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+      {/* 3. Strict Fullscreen Barrier: Rendered whenever isFullscreen is false */}
+      {!isFullscreen && !loading && !warningModal && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
           <div className="card-fortress max-w-md w-full border-amber-800/80 bg-stone-950 p-6 text-center shadow-2xl space-y-5">
             <div className="w-14 h-14 mx-auto rounded-full bg-amber-950/80 border-2 border-amber-500 flex items-center justify-center text-2xl">
               ⚔️
@@ -310,10 +320,10 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
                 TEST ENVIRONMENT
               </span>
               <h3 className="text-xl font-black text-amber-100 font-clash tracking-wide uppercase">
-                ENTER FULLSCREEN TEST MODE
+                FULLSCREEN REQUIRED
               </h3>
               <p className="text-stone-400 text-xs mt-2 font-sans leading-relaxed">
-                The competition requires continuous fullscreen mode. Leaving fullscreen or switching away will trigger anti-cheat warnings (3 warnings maximum).
+                Continuous fullscreen mode is strictly required to participate. All test interactions are locked while outside fullscreen.
               </p>
             </div>
 
@@ -322,7 +332,7 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
               className="btn-battle-gold w-full py-3 text-sm uppercase tracking-wider font-clash font-bold flex items-center justify-center gap-2"
             >
               <IconShield className="w-4 h-4 text-stone-950" />
-              <span>ENGAGE TEST MODE &rarr;</span>
+              <span>ENGAGE FULLSCREEN &rarr;</span>
             </button>
           </div>
         </div>

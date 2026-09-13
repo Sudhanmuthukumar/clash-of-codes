@@ -21,7 +21,10 @@ router.get('/', async (req, res) => {
         let questionsList = [];
 
         const existingAllocations = await prisma.teamQuestionAllocation.findMany({
-            where: { teamId: team.id },
+            where: { 
+                teamId: team.id,
+                question: { eventId: event.id }
+            },
             select: { questionId: true }
         });
 

@@ -339,7 +339,6 @@ const ParticipantCodeScramble = () => {
       }}
       onSessionTerminated={() => {
         fetchStatus();
-        toast.error("TEST TERMINATED: Maximum violations reached.");
       }}
     >
       <div className="flex-grow flex flex-col h-[calc(100vh-4rem)] bg-stone-950 overflow-hidden font-sans">
