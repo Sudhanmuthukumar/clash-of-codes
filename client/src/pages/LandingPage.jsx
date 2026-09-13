@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { IconSwords, IconShield, IconLock, IconHammer, IconCastle, IconStar } from '../components/FantasyIcons';
 
+import clashLogo from '../assets/clash-of-codes-logo.png';
+
 const LandingPage = () => {
   return (
     <div className="min-h-screen bg-stone-950 text-stone-200 flex flex-col relative overflow-hidden font-sans select-none justify-between">
@@ -33,10 +35,10 @@ const LandingPage = () => {
       {/* =========================================================================
           MAIN HOME PAGE CONTENT
           ========================================================================= */}
-      <div className="flex-grow z-10 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-10 max-w-5xl mx-auto w-full">
+      <div className="flex-grow z-10 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 max-w-5xl mx-auto w-full">
         
         {/* 1. TOP INSTITUTIONAL CARVED BANNER (Exact Match from Poster) */}
-        <header className="w-full max-w-2xl mb-6 sm:mb-8 text-center relative">
+        <header className="w-full max-w-2xl mb-4 sm:mb-6 text-center relative">
           <div className="parchment-banner px-4 sm:px-6 py-3 sm:py-3.5 relative border-[#8c5a2b] shadow-2xl">
             {/* Corner Rivets */}
             <span className="rivet absolute top-2 left-2"></span>
@@ -60,60 +62,21 @@ const LandingPage = () => {
           </div>
         </header>
 
-        {/* 2. MAIN LOGO / BRANDING HERO AREA (Matches Poster Shield & 3D Typography) */}
-        <section className="text-center mb-8 sm:mb-10 relative flex flex-col items-center">
-          
-          {/* Outer Carved Wooden Shield Plaque */}
-          <div className="clash-shield-wood rounded-3xl p-5 sm:p-7 md:p-8 relative max-w-lg sm:max-w-xl w-full mx-auto flex flex-col items-center">
-            
-            {/* Battle Crown Apex with Crossed Swords */}
-            <div className="absolute -top-6 sm:-top-7 left-1/2 -translate-x-1/2 flex items-center justify-center z-20">
-              <div className="p-2 sm:p-2.5 rounded-full bg-gradient-to-b from-amber-400 via-amber-600 to-amber-900 border-2 border-amber-300 shadow-[0_4px_16px_rgba(245,158,11,0.6)]">
-                <IconSwords className="w-6 h-6 sm:w-7 sm:h-7 text-stone-950" />
-              </div>
-            </div>
+        {/* 2. MAIN EXTRACTED CLASH OF CODES LOGO (From Provided Poster) */}
+        <section className="text-center mb-5 sm:mb-7 relative flex flex-col items-center w-full">
+          <div className="relative inline-flex flex-col items-center justify-center max-w-md sm:max-w-lg md:max-w-xl w-full px-2">
+            {/* Ambient Gold Halo behind the extracted logo */}
+            <div className="absolute inset-0 bg-amber-500/15 blur-2xl rounded-full scale-90 pointer-events-none"></div>
 
-            {/* Corner Decorative Studs */}
-            <span className="rivet absolute top-3 left-3"></span>
-            <span className="rivet absolute top-3 right-3"></span>
-            <span className="rivet absolute bottom-3 left-3"></span>
-            <span className="rivet absolute bottom-3 right-3"></span>
-
-            {/* Title Line 1: CLASH (Gold 3D Extrusion) */}
-            <h1 className="font-clash text-5xl sm:text-7xl md:text-8xl tracking-wider text-3d-gold uppercase leading-none mt-2 sm:mt-3">
-              CLASH
-            </h1>
-
-            {/* Title Line 2: OF (Wood Badge with Gold Lines) */}
-            <div className="flex items-center gap-2 my-0 sm:-my-1 z-10">
-              <span className="h-0.5 w-6 sm:w-10 bg-amber-500 shadow"></span>
-              <span className="px-3 sm:px-4 py-0.5 rounded-full bg-[#201108] border-2 border-amber-600 text-amber-200 text-xs sm:text-sm font-clash tracking-widest shadow-md">
-                OF
-              </span>
-              <span className="h-0.5 w-6 sm:w-10 bg-amber-500 shadow"></span>
-            </div>
-
-            {/* Title Line 3: CODES with Coding Symbol Badge </> */}
-            <div className="flex items-center justify-center gap-2 sm:gap-3">
-              <h1 className="font-clash text-5xl sm:text-7xl md:text-8xl tracking-wider text-3d-stone uppercase leading-none">
-                CODES
-              </h1>
-              <span className="font-mono text-xl sm:text-3xl md:text-4xl text-cyan-300 font-black bg-stone-950/95 px-2.5 sm:px-3 py-1 rounded-xl border-2 border-cyan-500/80 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
-                &lt;/&gt;
-              </span>
-            </div>
-
-            {/* Arched Orange/Gold Banner: ENGINEERS' DAY CELEBRATION */}
-            <div className="clash-banner-orange mt-3.5 sm:mt-4 inline-flex items-center gap-2 px-4 sm:px-6 py-1.5 rounded-xl shadow-lg">
-              <IconStar className="w-3.5 h-3.5 text-amber-300" />
-              <span className="text-amber-100 text-[11px] sm:text-xs md:text-sm font-clash uppercase tracking-widest drop-shadow">
-                ENGINEERS' DAY CELEBRATION
-              </span>
-              <IconStar className="w-3.5 h-3.5 text-amber-300" />
-            </div>
+            {/* Extracted Original Poster Logo */}
+            <img
+              src={clashLogo}
+              alt="Clash of Codes - Engineers' Day Celebration"
+              className="relative z-10 w-full h-auto max-h-[290px] sm:max-h-[360px] md:max-h-[400px] object-contain drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)] hover:scale-[1.02] transition-transform duration-300"
+            />
 
             {/* Subtitle */}
-            <p className="text-xs sm:text-sm text-amber-200/90 font-fantasy font-semibold mt-2.5 tracking-wider">
+            <p className="text-xs sm:text-sm md:text-base text-amber-200/90 font-fantasy font-semibold mt-3 tracking-wider drop-shadow">
               Where Code Meets Combat &bull; Think. Code. Conquer.
             </p>
           </div>
