@@ -38,8 +38,18 @@ router.post('/admin/login', loginLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: admin.id, role: 'admin', userId: admin.userId },
             process.env.JWT_SECRET || 'tech-arena-dev-secret-2026',
-            { expiresIn: '8h' }
+            { expiresIn: '90m' }
         );
+
+        // Secure HttpOnly session cookie (90 minutes max lifetime)
+        const isProd = process.env.NODE_ENV === 'production';
+        res.cookie('clash_auth_token', token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
+            maxAge: 90 * 60 * 1000 // 90 minutes
+        });
+
         res.json({
             token,
             role: 'admin',
@@ -238,8 +248,17 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: team.id, role: 'participant', teamId: team.id, eventId: team.eventId },
             process.env.JWT_SECRET || 'tech-arena-dev-secret-2026',
-            { expiresIn: '4h' }
+            { expiresIn: '90m' }
         );
+
+        // Secure HttpOnly session cookie (90 minutes max lifetime)
+        const isProd = process.env.NODE_ENV === 'production';
+        res.cookie('clash_auth_token', token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
+            maxAge: 90 * 60 * 1000 // 90 minutes
+        });
 
         const m1Name = team.member1Name || team.participant1Name;
         const m1Sec = team.member1Section || team.participant1Batch;
@@ -269,6 +288,17 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
         console.error('Participant login error:', err);
         res.status(500).json({ error: 'Server error' });
     }
+});
+
+// LOGOUT ENDPOINT (clears HttpOnly cookie)
+router.post('/logout', (req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('clash_auth_token', {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax'
+    });
+    res.json({ success: true, message: 'Logged out successfully' });
 });
 
 router.get('/me', authenticateToken, async (req, res) => {

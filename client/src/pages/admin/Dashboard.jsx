@@ -241,6 +241,7 @@ const AdminDashboard = () => {
                   <th className="py-3 px-4">Event</th>
                   <th className="py-3 px-4">Questions Attempted</th>
                   <th className="py-3 px-4">Time Remaining</th>
+                  <th className="py-3 px-4">Anti-Cheat Warnings</th>
                   <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
@@ -256,12 +257,31 @@ const AdminDashboard = () => {
                       {t.time_remaining !== undefined ? `${Math.floor(t.time_remaining / 60)}m ${t.time_remaining % 60}s` : '—'}
                     </td>
                     <td className="py-3 px-4">
+                      {t.status === 'terminated' || t.test_status === 'TERMINATED' ? (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-950 text-red-400 border border-red-700" title={t.termination_reason || '3 violations exceeded'}>
+                          TERMINATED (3/3)
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                          (t.violation_count || 0) === 0
+                            ? 'bg-stone-900 text-stone-400 border border-stone-800'
+                            : (t.violation_count || 0) === 1
+                            ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                            : 'bg-red-950 text-red-400 border border-red-800 animate-pulse'
+                        }`}>
+                          {t.violation_count || 0} / 3
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                           t.status === 'completed'
                             ? 'bg-blue-900/40 text-blue-400 border border-blue-800'
                             : t.status === 'active'
                             ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800'
+                            : t.status === 'terminated'
+                            ? 'bg-red-950 text-red-400 border border-red-800 font-black'
                             : 'bg-red-900/40 text-red-400 border border-red-800'
                         }`}
                       >

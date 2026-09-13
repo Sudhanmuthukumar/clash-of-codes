@@ -71,6 +71,10 @@ router.get('/live', async (req, res) => {
                 },
                 htFinalAttempts: {
                     select: { questionId: true }
+                },
+                testSessions: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
                 }
             }
         });
@@ -80,13 +84,21 @@ router.get('/live', async (req, res) => {
             const htCount = t.htFinalAttempts.length;
             const questions_attempted = csCount + htCount;
 
+            const session = t.testSessions && t.testSessions.length > 0 ? t.testSessions[0] : null;
             let time_elapsed = 0;
-            let time_remaining = t.event ? t.event.timeLimitMinutes * 60 : 0;
+            let time_remaining = 40 * 60;
 
-            if (t.eventStartedAt && t.event) {
+            if (session) {
+                const now = Date.now();
+                time_elapsed = Math.round((now - new Date(session.startedAt).getTime()) / 1000);
+                if (session.status === 'ACTIVE') {
+                    time_remaining = Math.max(0, Math.round((new Date(session.expiresAt).getTime() - now) / 1000));
+                } else {
+                    time_remaining = 0;
+                }
+            } else if (t.eventStartedAt) {
                 time_elapsed = Math.round((Date.now() - new Date(t.eventStartedAt).getTime()) / 1000);
-                const pauseDuration = t.event.pauseDurationSeconds || 0;
-                time_remaining = Math.max(0, (t.event.timeLimitMinutes * 60) + pauseDuration - time_elapsed);
+                time_remaining = Math.max(0, (40 * 60) - time_elapsed);
             }
 
             return {
@@ -94,13 +106,16 @@ router.get('/live', async (req, res) => {
                 team_name: t.teamName,
                 year: t.year,
                 event_name: t.event ? t.event.name : null,
-                status: t.status,
-                event_started_at: t.eventStartedAt ? t.eventStartedAt.toISOString() : null,
+                status: session && session.status === 'TERMINATED' ? 'terminated' : t.status,
+                event_started_at: session ? session.startedAt.toISOString() : (t.eventStartedAt ? t.eventStartedAt.toISOString() : null),
                 total_allocated: t.event ? t.event.questionsPerTeam : 5,
-                time_limit_minutes: t.event ? t.event.timeLimitMinutes : 45,
+                time_limit_minutes: 40,
                 questions_attempted,
                 time_elapsed,
-                time_remaining
+                time_remaining,
+                violation_count: session ? session.violationCount : 0,
+                termination_reason: session ? session.terminationReason : null,
+                test_status: session ? session.status : 'NOT_STARTED'
             };
         });
 

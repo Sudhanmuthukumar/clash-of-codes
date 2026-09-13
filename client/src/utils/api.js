@@ -8,6 +8,7 @@ const baseURL = rawBaseUrl
 
 const api = axios.create({
   baseURL,
+  withCredentials: true,
 });
 
 api.interceptors.request.use(

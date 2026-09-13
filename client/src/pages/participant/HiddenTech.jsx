@@ -4,6 +4,7 @@ import { useToast } from '../../components/Toast';
 import api from '../../utils/api';
 import CountdownTimer from '../../components/CountdownTimer';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import TestModeGuard from '../../components/TestModeGuard';
 import { 
   IconLock, 
   IconUnlock, 
@@ -146,7 +147,18 @@ const ParticipantHiddenTech = () => {
   const hasFinalOutput = !!currentQ?.has_final_output;
 
   return (
-    <div className="flex-grow flex flex-col h-[calc(100vh-4rem)] bg-stone-950 overflow-hidden font-sans">
+    <TestModeGuard
+      eventName="Crack the Code"
+      onSessionExpired={() => {
+        fetchStatus();
+        toast.error("TIME'S UP! The battle has concluded.");
+      }}
+      onSessionTerminated={() => {
+        fetchStatus();
+        toast.error("TEST TERMINATED: Maximum violations reached.");
+      }}
+    >
+      <div className="flex-grow flex flex-col h-[calc(100vh-4rem)] bg-stone-950 overflow-hidden font-sans">
       {/* Top Bar with Question Selection & Battle Timer */}
       <div className="bg-stone-900/90 border-b border-stone-800 px-4 py-3 flex flex-wrap items-center justify-between gap-4 z-10 shadow-md">
         <div className="flex items-center gap-3 overflow-x-auto py-1">
@@ -396,7 +408,8 @@ const ParticipantHiddenTech = () => {
         confirmText="Reveal Hint"
         confirmStyle="warning"
       />
-    </div>
+      </div>
+    </TestModeGuard>
   );
 };
 

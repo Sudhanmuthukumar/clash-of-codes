@@ -35,7 +35,12 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // Ignore network errors during logout
+    }
     localStorage.removeItem('tech_arena_token');
     setToken(null);
     setUser(null);

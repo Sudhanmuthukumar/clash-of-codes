@@ -4,6 +4,7 @@ import { useToast } from '../../components/Toast';
 import api from '../../utils/api';
 import CountdownTimer from '../../components/CountdownTimer';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import TestModeGuard from '../../components/TestModeGuard';
 import { 
   IconHammer, 
   IconStar, 
@@ -314,7 +315,18 @@ const ParticipantCodeScramble = () => {
   const totalCount = lines.length;
 
   return (
-    <div className="flex-grow flex flex-col h-[calc(100vh-4rem)] bg-stone-950 overflow-hidden font-sans">
+    <TestModeGuard
+      eventName="Code Scramble"
+      onSessionExpired={() => {
+        fetchStatus();
+        toast.error("TIME'S UP! The battle has concluded.");
+      }}
+      onSessionTerminated={() => {
+        fetchStatus();
+        toast.error("TEST TERMINATED: Maximum violations reached.");
+      }}
+    >
+      <div className="flex-grow flex flex-col h-[calc(100vh-4rem)] bg-stone-950 overflow-hidden font-sans">
       {/* Top Bar with Question Navigation and Countdown */}
       <div className="bg-[#18110a] border-b-2 border-[#5c371f] px-4 py-2.5 flex flex-wrap items-center justify-between gap-4 z-10 shadow-md">
         <div className="flex items-center gap-2.5 overflow-x-auto py-1">
@@ -620,7 +632,8 @@ const ParticipantCodeScramble = () => {
         confirmText="Submit Code Scramble"
         confirmStyle="danger"
       />
-    </div>
+      </div>
+    </TestModeGuard>
   );
 };
 

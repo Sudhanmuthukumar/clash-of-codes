@@ -33,6 +33,7 @@ model Event {
   updatedAt            DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   teams                Team[]
   questions            Question[]
+  testSessions         TestSession[]
 
   @@map("events")
 }
@@ -73,6 +74,7 @@ model Team {
   htFinalAttempts    HiddenTechFinalAttempt[]
   hints              HintUsage[]
   scores             ScoreHistory[]
+  testSessions       TestSession[]
 
   @@map("teams")
 }
@@ -250,4 +252,22 @@ model AuditLog {
   admin      Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@map("audit_log")
+}
+
+model TestSession {
+  id                Int       @id @default(autoincrement())
+  teamId            Int       @map("team_id")
+  eventId           Int       @map("event_id")
+  startedAt         DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz
+  status            String    @default("ACTIVE") // ACTIVE, SUBMITTED, EXPIRED, TERMINATED
+  violationCount    Int       @default(0) @map("violation_count")
+  terminationReason String?   @map("termination_reason")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  team              Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, eventId])
+  @@map("test_sessions")
 }
