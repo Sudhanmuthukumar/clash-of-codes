@@ -80,6 +80,12 @@ const AdminLogin = () => {
             )}
           </button>
         </form>
+
+        <div className="mt-5 text-center">
+          <Link to="/" className="text-xs text-stone-500 hover:text-amber-300/80 transition-colors font-sans">
+            &larr; Back to Battle Gate
+          </Link>
+        </div>
       </div>
     </div>
   );

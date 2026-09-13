@@ -9,8 +9,9 @@ const Navbar = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Requirement: Completely remove navigation bar from the landing and auth/register pages
-  if (location.pathname === '/' || location.pathname === '/register' || location.pathname === '/login') {
+  // Requirement: Completely remove navigation bar from landing, register, participant login, and admin login pages
+  const noNavRoutes = ['/', '/register', '/login', '/admin/login'];
+  if (noNavRoutes.includes(location.pathname)) {
     return null;
   }
 
