@@ -143,7 +143,15 @@ async function seed() {
             marks: 100,
             final_code: 'a = 10\nb = 20\ntotal = a + b\nprint(total)',
             shuffled_code: 'print(total)\ntotal = a + b\na = 10\nb = 20',
-            hint: 'The first step is to define variables before using them.'
+            hint: 'The first step is to define variables before using them.',
+            ordering_rules: JSON.stringify({
+                blocks: [
+                    { id: '1', lines: ['a = 10'], orderGroup: 1 },
+                    { id: '2', lines: ['b = 20'], orderGroup: 1 },
+                    { id: '3', lines: ['total = a + b'], orderGroup: 2 },
+                    { id: '4', lines: ['print(total)'], orderGroup: 3 }
+                ]
+            })
         },
         {
             title: 'List Sum',
@@ -151,7 +159,15 @@ async function seed() {
             marks: 100,
             final_code: 'numbers = [1, 2, 3, 4, 5]\ntotal = 0\nfor n in numbers:\n    total += n\nprint(total)',
             shuffled_code: 'print(total)\nfor n in numbers:\ntotal = 0\n    total += n\nnumbers = [1, 2, 3, 4, 5]',
-            hint: 'You need to create the list before iterating over it.'
+            hint: 'You need to create the list before iterating over it.',
+            ordering_rules: JSON.stringify({
+                blocks: [
+                    { id: '1', lines: ['numbers = [1, 2, 3, 4, 5]'], orderGroup: 1 },
+                    { id: '2', lines: ['total = 0'], orderGroup: 1 },
+                    { id: '3', lines: ['for n in numbers:', '    total += n'], orderGroup: 2 },
+                    { id: '4', lines: ['print(total)'], orderGroup: 3 }
+                ]
+            })
         },
         {
             title: 'Factorial Function',
@@ -197,7 +213,8 @@ async function seed() {
                         finalCode: cs.final_code,
                         shuffledCode: cs.shuffled_code,
                         firstLine: firstLine,
-                        firstLinePenalty: 1
+                        firstLinePenalty: 1,
+                        orderingRules: cs.ordering_rules || null
                     }
                 }
             }

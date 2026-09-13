@@ -3,6 +3,7 @@ const router = express.Router();
 const { prisma } = require('../../db/database');
 const { requireParticipant, authenticateToken } = require('../../middleware/auth');
 const { submissionLimiter } = require('../../middleware/rateLimiter');
+const { getValidArrangements, isArrangementValid } = require('../../utils/scrambleValidator');
 
 router.use(authenticateToken, requireParticipant);
 
@@ -22,7 +23,7 @@ async function finalizeCodeScrambleForTeam(teamId) {
         if (!q || !q.codeScrambleData) continue;
 
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
         const defaultOrder = shuffledLines.map((_, i) => i);
 
         let attempt = await prisma.codeScrambleAttempt.findUnique({
@@ -32,18 +33,7 @@ async function finalizeCodeScrambleForTeam(teamId) {
         const lineOrder = attempt ? JSON.parse(attempt.lineOrder) : defaultOrder;
         const arrangedLines = lineOrder.map(i => shuffledLines[i]);
 
-        let isCorrect = 1;
-        if (arrangedLines.length !== finalLines.length) {
-            isCorrect = 0;
-        } else {
-            for (let i = 0; i < finalLines.length; i++) {
-                if ((arrangedLines[i] || '').trim() !== (finalLines[i] || '').trim()) {
-                    isCorrect = 0;
-                    break;
-                }
-            }
-        }
-
+        const isCorrect = isArrangementValid(arrangedLines, validArrangements) ? 1 : 0;
         const remainingPoints = attempt ? attempt.currentPoints : (q.marks || 100);
         const marks = isCorrect ? remainingPoints : 0;
 

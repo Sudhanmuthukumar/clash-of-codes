@@ -294,6 +294,22 @@ const ParticipantCodeScramble = () => {
 
   if (loading) return <div className="p-8 text-center text-gray-400 font-sans">Loading Code Scramble...</div>;
 
+  const currentQuestionIndex = questions.findIndex(q => q.id === activeId);
+  const isFirstQuestion = currentQuestionIndex <= 0;
+  const isLastQuestion = currentQuestionIndex >= 0 && currentQuestionIndex === questions.length - 1;
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      loadQuestion(questions[currentQuestionIndex - 1].id);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      loadQuestion(questions[currentQuestionIndex + 1].id);
+    }
+  };
+
   const correctCount = correctPositions.filter(Boolean).length;
   const totalCount = lines.length;
 
@@ -345,18 +361,6 @@ const ParticipantCodeScramble = () => {
                 }}
               />
             </div>
-          )}
-
-          {/* Prominent Overall Event Submission Button */}
-          {!isEventEnded && (
-            <button
-              onClick={() => setShowFinishEventModal(true)}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white border-2 border-red-400 rounded-lg text-xs font-clash uppercase tracking-wider font-black shadow-lg flex items-center gap-1.5 active:scale-95 transition-all shrink-0"
-              title="Finalize and submit the entire Code Scramble event"
-            >
-              <IconSwords className="w-4 h-4 text-white" />
-              <span>FINISH BATTLE</span>
-            </button>
           )}
         </div>
       </div>
@@ -459,18 +463,6 @@ const ParticipantCodeScramble = () => {
                   SAVE WORK
                 </button>
               </div>
-
-              {/* Event Finish Action in Header */}
-              {!isEventEnded && (
-                <button
-                  onClick={() => setShowFinishEventModal(true)}
-                  className="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white font-clash text-xs font-black uppercase tracking-wider rounded-xl border border-red-400 shadow-md flex items-center gap-1.5"
-                  title="Finish and submit entire Code Scramble event"
-                >
-                  <IconSwords className="w-3.5 h-3.5" />
-                  <span>FINISH EVENT</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -559,6 +551,47 @@ const ParticipantCodeScramble = () => {
               ))}
             </div>
           </div>
+
+          {/* Bottom Navigation Bar */}
+          <div className="mt-3.5 pt-3 border-t border-[#3d2415] flex items-center justify-between gap-4 bg-[#140c07]/90 px-4 py-3 rounded-xl border border-[#422513]">
+            <button
+              onClick={handlePreviousQuestion}
+              disabled={isFirstQuestion}
+              className={`px-4 py-2 rounded-lg font-clash text-xs uppercase tracking-wider font-bold transition-all flex items-center gap-1.5 ${
+                isFirstQuestion
+                  ? 'bg-stone-900/50 text-stone-600 border border-stone-800/50 cursor-not-allowed'
+                  : 'bg-[#251810] hover:bg-[#382418] text-amber-200 border border-amber-800/80 shadow'
+              }`}
+            >
+              <span>&larr; PREVIOUS</span>
+            </button>
+
+            <div className="text-xs font-clash tracking-wider text-amber-400 font-bold uppercase">
+              QUESTION {currentQuestionIndex + 1} OF {questions.length}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isLastQuestion ? (
+                <button
+                  onClick={handleNextQuestion}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-clash text-xs font-bold uppercase tracking-wider rounded-lg border border-amber-400 shadow-md flex items-center gap-1.5 transition-all"
+                >
+                  <span>NEXT &rarr;</span>
+                </button>
+              ) : (
+                !isEventEnded && (
+                  <button
+                    onClick={() => setShowFinishEventModal(true)}
+                    className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-clash text-xs font-black uppercase tracking-wider rounded-lg border border-red-400 shadow-lg flex items-center gap-1.5 animate-pulse transition-all"
+                    title="Submit all assigned questions and conclude Code Scramble"
+                  >
+                    <IconSwords className="w-4 h-4" />
+                    <span>SUBMIT CODE SCRAMBLE</span>
+                  </button>
+                )
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <div className="flex-grow flex items-center justify-center text-gray-500 font-sans">
@@ -582,9 +615,9 @@ const ParticipantCodeScramble = () => {
         isOpen={showFinishEventModal}
         onClose={() => setShowFinishEventModal(false)}
         onConfirm={handleFinishEvent}
-        title="Finish Code Scramble Event?"
-        message="Are you sure you want to conclude the Code Scramble event? All your saved code arrangements across all assigned questions will be submitted and evaluated for your final score. This will conclude your battle."
-        confirmText="Yes, Finish Battle"
+        title="Submit Code Scramble?"
+        message="Your answers for all assigned questions will be submitted and cannot be changed afterward."
+        confirmText="Submit Code Scramble"
         confirmStyle="danger"
       />
     </div>

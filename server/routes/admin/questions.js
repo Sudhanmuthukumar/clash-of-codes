@@ -47,7 +47,8 @@ router.get('/', async (req, res) => {
                     final_code: q.codeScrambleData.finalCode,
                     shuffled_code: q.codeScrambleData.shuffledCode,
                     first_line: q.codeScrambleData.firstLine,
-                    first_line_penalty: q.codeScrambleData.firstLinePenalty
+                    first_line_penalty: q.codeScrambleData.firstLinePenalty,
+                    ordering_rules: q.codeScrambleData.orderingRules || null
                 };
             } else if (q.hiddenTechQuestion) {
                 resQ.type = 'hidden_tech';
@@ -117,7 +118,8 @@ router.post('/code-scramble', async (req, res) => {
                             finalCode: final_code,
                             shuffledCode: shuffled_code,
                             firstLine: first_line,
-                            firstLinePenalty: first_line_penalty ? parseInt(first_line_penalty) : 1
+                            firstLinePenalty: first_line_penalty ? parseInt(first_line_penalty) : 1,
+                            orderingRules: req.body.ordering_rules ? (typeof req.body.ordering_rules === 'string' ? req.body.ordering_rules : JSON.stringify(req.body.ordering_rules)) : null
                         }
                     }
                 }
@@ -252,7 +254,8 @@ router.get('/:id', async (req, res) => {
                 final_code: q.codeScrambleData.finalCode,
                 shuffled_code: q.codeScrambleData.shuffledCode,
                 first_line: q.codeScrambleData.firstLine,
-                first_line_penalty: q.codeScrambleData.firstLinePenalty
+                first_line_penalty: q.codeScrambleData.firstLinePenalty,
+                ordering_rules: q.codeScrambleData.orderingRules || null
             };
         } else if (q.hiddenTechQuestion) {
             resQ.type = 'hidden_tech';
@@ -316,6 +319,9 @@ router.put('/:id', async (req, res) => {
                 }
                 if (req.body.shuffled_code) updateCS.shuffledCode = req.body.shuffled_code;
                 if (req.body.first_line_penalty !== undefined) updateCS.firstLinePenalty = parseInt(req.body.first_line_penalty);
+                if (req.body.ordering_rules !== undefined) {
+                    updateCS.orderingRules = req.body.ordering_rules ? (typeof req.body.ordering_rules === 'string' ? req.body.ordering_rules : JSON.stringify(req.body.ordering_rules)) : null;
+                }
 
                 if (Object.keys(updateCS).length > 0) {
                     await tx.codeScrambleData.update({

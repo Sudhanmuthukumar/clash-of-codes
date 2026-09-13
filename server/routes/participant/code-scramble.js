@@ -4,17 +4,14 @@ const { prisma } = require('../../db/database');
 const { requireParticipant, requireEventActive, authenticateToken } = require('../../middleware/auth');
 const { isQuestionAllocated } = require('../../services/questionAllocator');
 const { actionLimiter, submissionLimiter } = require('../../middleware/rateLimiter');
+const {
+    getValidArrangements,
+    isArrangementValid,
+    computeCorrectPositions,
+    resolveClue
+} = require('../../utils/scrambleValidator');
 
 router.use(authenticateToken, requireParticipant, requireEventActive);
-
-// Helper to compute boolean array of matching lines
-function computeCorrectPositions(arrangedLineIndices, shuffledLines, finalLines) {
-    return arrangedLineIndices.map((origIdx, pos) => {
-        const arrangedText = (shuffledLines[origIdx] || '').trim();
-        const expectedText = (finalLines[pos] || '').trim();
-        return arrangedText === expectedText;
-    });
-}
 
 router.get('/questions', async (req, res) => {
     try {
@@ -87,7 +84,7 @@ router.get('/questions/:id', async (req, res) => {
 
         const startingPoints = q.marks || 100;
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
         
         let attempt = await prisma.codeScrambleAttempt.findUnique({
             where: {
@@ -122,8 +119,8 @@ router.get('/questions/:id', async (req, res) => {
             }
         }
 
-        const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
-        const allCorrect = correctPositions.every(Boolean);
+        const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, validArrangements);
+        const allCorrect = isArrangementValid(lineOrder.map(i => shuffledLines[i]), validArrangements);
 
         const isSubmitted = attempt ? attempt.isSubmitted === 1 : false;
         const canSwap = currentPoints > 0 && !isSubmitted;
@@ -174,7 +171,7 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
 
         const startingPoints = q.marks || 100;
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
 
         const result = await prisma.$transaction(async (tx) => {
             let attempt = await tx.codeScrambleAttempt.findUnique({
@@ -211,8 +208,8 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
                 });
             }
 
-            const correctPositions = computeCorrectPositions(line_order, shuffledLines, finalLines);
-            const allCorrect = correctPositions.every(Boolean);
+            const correctPositions = computeCorrectPositions(line_order, shuffledLines, validArrangements);
+            const allCorrect = isArrangementValid(line_order.map(i => shuffledLines[i]), validArrangements);
             const isCorrect = allCorrect ? 1 : 0;
             const marks = isCorrect ? currentPoints : 0;
 
@@ -282,7 +279,7 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
 
         const startingPoints = q.marks || 100;
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
 
         let attempt = await prisma.codeScrambleAttempt.findUnique({
             where: { teamId_questionId: { teamId, questionId: qId } }
@@ -298,7 +295,8 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
 
         if (typeof indexA === 'number' && typeof indexB === 'number' && indexA >= 0 && indexB >= 0 && indexA < lineOrder.length && indexB < lineOrder.length) {
             if (indexA === indexB) {
-                const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
+                const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, validArrangements);
+                const allCorrect = isArrangementValid(lineOrder.map(i => shuffledLines[i]), validArrangements);
                 return res.json({
                     swapped: false,
                     line_order: lineOrder,
@@ -308,7 +306,7 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
                     swaps_count: attempt ? attempt.swapsCount : 0,
                     hints_count: attempt ? attempt.hintsCount : 0,
                     can_swap: (attempt ? attempt.currentPoints : startingPoints) > 0,
-                    can_hint: (attempt ? attempt.currentPoints : startingPoints) > 5 && !correctPositions.every(Boolean)
+                    can_hint: (attempt ? attempt.currentPoints : startingPoints) > 5 && !allCorrect
                 });
             }
             // True pairwise swap: only lineOrder[indexA] and lineOrder[indexB] exchange positions
@@ -348,8 +346,8 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
                 }
             });
 
-            const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
-            const allCorrect = correctPositions.every(Boolean);
+            const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, validArrangements);
+            const allCorrect = isArrangementValid(lineOrder.map(i => shuffledLines[i]), validArrangements);
             const isCorrect = allCorrect ? 1 : 0;
             const marks = isCorrect ? currentPoints : 0;
 
@@ -415,7 +413,7 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
 
         const startingPoints = q.marks || 100;
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
 
         const result = await prisma.$transaction(async (tx) => {
             let attempt = await tx.codeScrambleAttempt.findUnique({
@@ -441,18 +439,8 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
             const defaultOrder = shuffledLines.map((_, i) => i);
             let lineOrder = attempt ? JSON.parse(attempt.lineOrder) : defaultOrder;
 
-            // Find first unresolved line index
-            let targetIdx = -1;
-            for (let i = 0; i < finalLines.length; i++) {
-                const currentLine = (shuffledLines[lineOrder[i]] || '').trim();
-                const expectedLine = (finalLines[i] || '').trim();
-                if (currentLine !== expectedLine) {
-                    targetIdx = i;
-                    break;
-                }
-            }
-
-            if (targetIdx === -1) {
+            const clueRes = resolveClue(lineOrder, shuffledLines, validArrangements);
+            if (clueRes.allAligned) {
                 return {
                     message: 'All lines are already in correct position!',
                     correct_positions: lineOrder.map(() => true),
@@ -461,22 +449,10 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                 };
             }
 
-            // Find where expected line is located
-            const expectedText = (finalLines[targetIdx] || '').trim();
-            let sourceIdx = -1;
-            for (let j = 0; j < lineOrder.length; j++) {
-                if (j === targetIdx) continue;
-                const lineText = (shuffledLines[lineOrder[j]] || '').trim();
-                if (lineText === expectedText) {
-                    sourceIdx = j;
-                    break;
-                }
-            }
-
-            if (sourceIdx !== -1) {
-                const temp = lineOrder[targetIdx];
-                lineOrder[targetIdx] = lineOrder[sourceIdx];
-                lineOrder[sourceIdx] = temp;
+            if (clueRes.sourceIdx !== -1 && clueRes.targetIdx !== -1) {
+                const temp = lineOrder[clueRes.targetIdx];
+                lineOrder[clueRes.targetIdx] = lineOrder[clueRes.sourceIdx];
+                lineOrder[clueRes.sourceIdx] = temp;
             }
 
             currentPoints = Math.max(0, currentPoints - 5);
@@ -499,8 +475,8 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                 }
             });
 
-            const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
-            const allCorrect = correctPositions.every(Boolean);
+            const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, validArrangements);
+            const allCorrect = isArrangementValid(lineOrder.map(i => shuffledLines[i]), validArrangements);
             const isCorrect = allCorrect ? 1 : 0;
             const marks = isCorrect ? currentPoints : 0;
 
@@ -578,21 +554,10 @@ router.post('/questions/:id/submit', submissionLimiter, async (req, res) => {
         if (!q || !q.codeScrambleData) return res.status(404).json({ error: 'Question not found' });
 
         const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
-        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const validArrangements = getValidArrangements(q.codeScrambleData);
         const arrangedLines = line_order.map(i => shuffledLines[i]);
 
-        let isCorrect = 1;
-        if (arrangedLines.length !== finalLines.length) {
-            isCorrect = 0;
-        } else {
-            for (let i = 0; i < finalLines.length; i++) {
-                if ((arrangedLines[i] || '').trim() !== (finalLines[i] || '').trim()) {
-                    isCorrect = 0;
-                    break;
-                }
-            }
-        }
-
+        const isCorrect = isArrangementValid(arrangedLines, validArrangements) ? 1 : 0;
         const remainingPoints = existing ? existing.currentPoints : (q.marks || 100);
         const marks = isCorrect ? remainingPoints : 0;
 

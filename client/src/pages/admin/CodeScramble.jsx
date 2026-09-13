@@ -13,12 +13,14 @@ const AdminCodeScramble = () => {
   const [formData, setFormData] = useState({
     id: null,
     title: '',
-    marks: 10,
+    marks: 100,
+    problem_description: '',
     final_code: '',
     shuffled_code: '',
     first_line_penalty: 1,
     hint: '',
-    hint_penalty: 2,
+    hint_penalty: 5,
+    ordering_rules: '',
   });
 
   const toast = useToast();
@@ -46,26 +48,47 @@ const AdminCodeScramble = () => {
   const handleOpenModal = (q = null) => {
     if (q) {
       const csData = q.code_scramble_data || {};
+      let rulesText = '';
+      if (csData.ordering_rules) {
+        try {
+          rulesText = typeof csData.ordering_rules === 'string'
+            ? csData.ordering_rules
+            : JSON.stringify(csData.ordering_rules, null, 2);
+        } catch (e) {
+          rulesText = '';
+        }
+      }
       setFormData({
         id: q.id,
         title: q.title || '',
-        marks: q.marks || 10,
+        marks: q.marks || 100,
+        problem_description: csData.problem_description || '',
         final_code: csData.final_code || '',
         shuffled_code: csData.shuffled_code || '',
         first_line_penalty: csData.first_line_penalty || 1,
         hint: q.hint || '',
-        hint_penalty: q.hint_penalty || 2,
+        hint_penalty: q.hint_penalty || 5,
+        ordering_rules: rulesText,
       });
     } else {
       setFormData({
         id: null,
         title: `Question ${questions.length + 1}`,
-        marks: 10,
+        marks: 100,
+        problem_description: '',
         final_code: 'a = 10\nb = 20\ntotal = a + b\nprint(total)',
         shuffled_code: 'print(total)\ntotal = a + b\na = 10\nb = 20',
         first_line_penalty: 1,
         hint: 'Define variables before usage',
-        hint_penalty: 2,
+        hint_penalty: 5,
+        ordering_rules: JSON.stringify({
+          blocks: [
+            { id: 1, lines: ['a = 10'], orderGroup: 1 },
+            { id: 2, lines: ['b = 20'], orderGroup: 1 },
+            { id: 3, lines: ['total = a + b'], orderGroup: 2 },
+            { id: 4, lines: ['print(total)'], orderGroup: 3 }
+          ]
+        }, null, 2),
       });
     }
     setShowModal(true);
@@ -73,16 +96,28 @@ const AdminCodeScramble = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    let parsedRules = null;
+    if (formData.ordering_rules && formData.ordering_rules.trim()) {
+      try {
+        parsedRules = JSON.parse(formData.ordering_rules.trim());
+      } catch (jsonErr) {
+        toast.error('Ordering rules must be valid JSON format');
+        return;
+      }
+    }
+
     try {
       if (formData.id) {
         await api.put(`/admin/questions/${formData.id}`, {
           title: formData.title,
           marks: parseInt(formData.marks, 10),
+          problem_description: formData.problem_description,
           final_code: formData.final_code,
           shuffled_code: formData.shuffled_code,
           first_line_penalty: parseInt(formData.first_line_penalty, 10),
           hint: formData.hint,
           hint_penalty: parseInt(formData.hint_penalty, 10),
+          ordering_rules: parsedRules,
         });
         toast.success('Question updated successfully');
       } else {
@@ -90,11 +125,13 @@ const AdminCodeScramble = () => {
           event_id: 1,
           title: formData.title,
           marks: parseInt(formData.marks, 10),
+          problem_description: formData.problem_description,
           final_code: formData.final_code,
           shuffled_code: formData.shuffled_code,
           first_line_penalty: parseInt(formData.first_line_penalty, 10),
           hint: formData.hint,
           hint_penalty: parseInt(formData.hint_penalty, 10),
+          ordering_rules: parsedRules,
         });
         toast.success('Code Scramble question created');
       }
@@ -301,6 +338,17 @@ const AdminCodeScramble = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="label">Problem Description & Objective</label>
+                <textarea
+                  rows="2"
+                  className="input-field text-xs text-stone-200"
+                  placeholder="Describe the programming problem or objective for the participant..."
+                  value={formData.problem_description}
+                  onChange={e => setFormData({ ...formData, problem_description: e.target.value })}
+                />
+              </div>
+
               {/* Code Inputs: Final vs Shuffled */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
@@ -332,6 +380,26 @@ const AdminCodeScramble = () => {
                     required
                   />
                 </div>
+              </div>
+
+              {/* Multiple Valid Code Orders: Interchangeable Blocks & Ordering Groups */}
+              <div className="bg-dark-950/80 p-4 rounded-xl border border-cyan-800/40">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="label text-cyan-300 font-bold mb-0">
+                    INTERCHANGEABLE GROUPS & ORDERING RULES (Multiple Valid Arrangements)
+                  </label>
+                  <span className="text-[11px] text-gray-400">Optional</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-2 font-sans">
+                  Group independent lines/blocks into integer stages (e.g. <code className="text-amber-300">orderGroup: 1</code>). Lines with the same <code className="text-amber-300">orderGroup</code> are interchangeable and can appear in any order. Mandatory dependencies must have higher group numbers (e.g. 2, 3).
+                </p>
+                <textarea
+                  rows="5"
+                  className="input-field font-mono text-xs text-cyan-200 bg-black/60 whitespace-pre"
+                  placeholder={`{\n  "blocks": [\n    { "id": 1, "lines": ["a = 10"], "orderGroup": 1 },\n    { "id": 2, "lines": ["b = 20"], "orderGroup": 1 },\n    { "id": 3, "lines": ["total = a + b"], "orderGroup": 2 },\n    { "id": 4, "lines": ["print(total)"], "orderGroup": 3 }\n  ]\n}`}
+                  value={formData.ordering_rules}
+                  onChange={e => setFormData({ ...formData, ordering_rules: e.target.value })}
+                />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">

@@ -109,6 +109,7 @@ model CodeScrambleData {
   shuffledCode       String   @map("shuffled_code")
   firstLine          String   @map("first_line")
   firstLinePenalty   Int      @default(1) @map("first_line_penalty")
+  orderingRules      String?  @map("ordering_rules")
   question           Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@map("code_scramble_data")
