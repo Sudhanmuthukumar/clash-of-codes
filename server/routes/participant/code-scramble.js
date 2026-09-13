@@ -213,6 +213,8 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
 
             const correctPositions = computeCorrectPositions(line_order, shuffledLines, finalLines);
             const allCorrect = correctPositions.every(Boolean);
+            const isCorrect = allCorrect ? 1 : 0;
+            const marks = isCorrect ? currentPoints : 0;
 
             await tx.codeScrambleAttempt.upsert({
                 where: { teamId_questionId: { teamId, questionId: qId } },
@@ -220,7 +222,9 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(line_order),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 },
                 create: {
                     teamId,
@@ -228,7 +232,9 @@ router.post('/questions/:id/save', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(line_order),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 }
             });
 
@@ -344,6 +350,8 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
 
             const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
             const allCorrect = correctPositions.every(Boolean);
+            const isCorrect = allCorrect ? 1 : 0;
+            const marks = isCorrect ? currentPoints : 0;
 
             await tx.codeScrambleAttempt.upsert({
                 where: { teamId_questionId: { teamId, questionId: qId } },
@@ -351,7 +359,9 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(lineOrder),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 },
                 create: {
                     teamId,
@@ -359,7 +369,9 @@ router.post('/questions/:id/swap', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(lineOrder),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 }
             });
 
@@ -489,6 +501,8 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
 
             const correctPositions = computeCorrectPositions(lineOrder, shuffledLines, finalLines);
             const allCorrect = correctPositions.every(Boolean);
+            const isCorrect = allCorrect ? 1 : 0;
+            const marks = isCorrect ? currentPoints : 0;
 
             await tx.codeScrambleAttempt.upsert({
                 where: { teamId_questionId: { teamId, questionId: qId } },
@@ -496,7 +510,9 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(lineOrder),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 },
                 create: {
                     teamId,
@@ -504,7 +520,9 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                     lineOrder: JSON.stringify(lineOrder),
                     swapsCount,
                     hintsCount,
-                    currentPoints
+                    currentPoints,
+                    isCorrect,
+                    marksAwarded: marks
                 }
             });
 

@@ -6,6 +6,72 @@ const { submissionLimiter } = require('../../middleware/rateLimiter');
 
 router.use(authenticateToken, requireParticipant);
 
+// Helper to finalize and grade all allocated Code Scramble questions for a team
+async function finalizeCodeScrambleForTeam(teamId) {
+    const allocations = await prisma.teamQuestionAllocation.findMany({
+        where: { teamId },
+        include: {
+            question: {
+                include: { codeScrambleData: true }
+            }
+        }
+    });
+
+    for (const alloc of allocations) {
+        const q = alloc.question;
+        if (!q || !q.codeScrambleData) continue;
+
+        const shuffledLines = q.codeScrambleData.shuffledCode.split('\n').filter(l => l !== undefined);
+        const finalLines = q.codeScrambleData.finalCode.split('\n').filter(l => l !== undefined);
+        const defaultOrder = shuffledLines.map((_, i) => i);
+
+        let attempt = await prisma.codeScrambleAttempt.findUnique({
+            where: { teamId_questionId: { teamId, questionId: q.id } }
+        });
+
+        const lineOrder = attempt ? JSON.parse(attempt.lineOrder) : defaultOrder;
+        const arrangedLines = lineOrder.map(i => shuffledLines[i]);
+
+        let isCorrect = 1;
+        if (arrangedLines.length !== finalLines.length) {
+            isCorrect = 0;
+        } else {
+            for (let i = 0; i < finalLines.length; i++) {
+                if ((arrangedLines[i] || '').trim() !== (finalLines[i] || '').trim()) {
+                    isCorrect = 0;
+                    break;
+                }
+            }
+        }
+
+        const remainingPoints = attempt ? attempt.currentPoints : (q.marks || 100);
+        const marks = isCorrect ? remainingPoints : 0;
+
+        await prisma.codeScrambleAttempt.upsert({
+            where: { teamId_questionId: { teamId, questionId: q.id } },
+            update: {
+                lineOrder: JSON.stringify(lineOrder),
+                isSubmitted: 1,
+                isCorrect,
+                marksAwarded: marks,
+                submittedAt: new Date()
+            },
+            create: {
+                teamId,
+                questionId: q.id,
+                lineOrder: JSON.stringify(lineOrder),
+                swapsCount: 0,
+                hintsCount: 0,
+                currentPoints: remainingPoints,
+                isSubmitted: 1,
+                isCorrect,
+                marksAwarded: marks,
+                submittedAt: new Date()
+            }
+        });
+    }
+}
+
 router.get('/status', async (req, res) => {
     try {
         const team = await prisma.team.findUnique({
@@ -39,6 +105,11 @@ router.get('/status', async (req, res) => {
                     }
                 });
                 team.status = 'time_expired';
+
+                // Automatically finalize and grade 2nd Year Code Scramble arrangements on expiry
+                if (team.year === '2nd Year') {
+                    await finalizeCodeScrambleForTeam(team.id);
+                }
             }
         }
 
@@ -60,6 +131,16 @@ router.get('/status', async (req, res) => {
 
 router.post('/submit', submissionLimiter, async (req, res) => {
     try {
+        const team = await prisma.team.findUnique({
+            where: { id: req.user.teamId }
+        });
+        if (!team) return res.status(404).json({ error: 'Team not found' });
+
+        // If Code Scramble (2nd Year), finalize and grade all allocated questions
+        if (team.year === '2nd Year') {
+            await finalizeCodeScrambleForTeam(team.id);
+        }
+
         await prisma.team.update({
             where: { id: req.user.teamId },
             data: {

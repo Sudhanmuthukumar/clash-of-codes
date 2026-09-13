@@ -248,9 +248,117 @@ async function runTrueSwapAndScoreTests() {
   console.log('  ✓ PASS: Swap correctly rejected at 0 points (cannot become negative)');
   passed++;
 
+  // 7. Free Question Switching (No per-question finalization)
+  console.log('\n--- TEST 7: Free Question Navigation & Editable State ---');
+  // Reset currentPoints to 100 for targetQId
+  await prisma.codeScrambleAttempt.update({
+    where: { teamId_questionId: { teamId: testTeamRecord.id, questionId: targetQId } },
+    data: { currentPoints: 100 }
+  });
+
+  // Switch to second question (if available)
+  if (qList.length > 1) {
+    const q2Id = qList[1].id;
+    const q2Detail = await request({
+      hostname: 'localhost', port: 5000, path: `/api/participant/code-scramble/questions/${q2Id}`, method: 'GET',
+      headers: authHeaders
+    });
+    assert.strictEqual(q2Detail.status, 200);
+    assert.strictEqual(q2Detail.data.is_submitted, false, 'Second question must NOT be finalized');
+    
+    // Save on Q2
+    const saveQ2 = await request({
+      hostname: 'localhost', port: 5000, path: `/api/participant/code-scramble/questions/${q2Id}/save`, method: 'POST',
+      headers: authHeaders
+    }, { line_order: q2Detail.data.current_arrangement });
+    assert.strictEqual(saveQ2.status, 200);
+
+    // Switch back to Q1 -> verify Q1 is still NOT finalized and fully editable
+    const q1Revisit = await request({
+      hostname: 'localhost', port: 5000, path: `/api/participant/code-scramble/questions/${targetQId}`, method: 'GET',
+      headers: authHeaders
+    });
+    assert.strictEqual(q1Revisit.data.is_submitted, false, 'Q1 must remain unfinalized and editable during free navigation');
+    console.log('  ✓ PASS: Free switching between questions preserved; no per-question finalization locking');
+    passed++;
+  }
+
+  // 8. Overall Event Submission Grades All Allocated Questions
+  console.log('\n--- TEST 8: Event-Level Submission Auto-Finalizes & Grades All Questions ---');
+  const eventSubmitRes = await request({
+    hostname: 'localhost', port: 5000, path: '/api/participant/event/submit', method: 'POST',
+    headers: authHeaders
+  });
+  assert.strictEqual(eventSubmitRes.status, 200);
+  assert.strictEqual(eventSubmitRes.data.submitted, true);
+
+  // Check database attempts for all allocated questions for this team
+  const finalizedAttempts = await prisma.codeScrambleAttempt.findMany({
+    where: { teamId: testTeamRecord.id }
+  });
+  assert.ok(finalizedAttempts.length > 0, 'Team must have attempts');
+  for (const att of finalizedAttempts) {
+    assert.strictEqual(att.isSubmitted, 1, `Attempt for Q${att.questionId} must be marked isSubmitted: 1`);
+    assert.ok(typeof att.marksAwarded === 'number', `Attempt for Q${att.questionId} must have numeric marksAwarded`);
+    assert.ok(typeof att.isCorrect === 'number', `Attempt for Q${att.questionId} must have numeric isCorrect`);
+  }
+  console.log(`  ✓ PASS: Event submission automatically finalized and graded ${finalizedAttempts.length} questions`);
+  passed++;
+
+  // 9. Timer Expiry Auto-Finalization
+  console.log('\n--- TEST 9: Server Timer Expiry Auto-Finalizes & Grades Code Scramble ---');
+  const team3Name = `ExpiryTeam_${Date.now()}`;
+  await request({
+    hostname: 'localhost', port: 5000, path: '/api/auth/participant/register', method: 'POST'
+  }, {
+    year: '2nd Year',
+    team_name: team3Name,
+    member_1_name: 'Expiry Member',
+    member_1_section: 'C',
+    email: `expiry_${Date.now()}@college.edu`,
+    password: password,
+    confirm_password: password
+  });
+  const team3Login = await request({
+    hostname: 'localhost', port: 5000, path: '/api/auth/participant/login', method: 'POST'
+  }, { year: '2nd Year', team_name: team3Name, password: password });
+  const team3Headers = { Authorization: `Bearer ${team3Login.data.token}` };
+  await request({
+    hostname: 'localhost', port: 5000, path: '/api/participant/dashboard', method: 'GET',
+    headers: team3Headers
+  });
+  const team3Record = await prisma.team.findUnique({ where: { teamName: team3Name } });
+
+  // Simulate event started 2 hours ago (so remaining_seconds === 0)
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  await prisma.team.update({
+    where: { id: team3Record.id },
+    data: { eventStartedAt: twoHoursAgo }
+  });
+
+  // Call /status which detects expiration
+  const statusRes = await request({
+    hostname: 'localhost', port: 5000, path: '/api/participant/event/status', method: 'GET',
+    headers: team3Headers
+  });
+  assert.strictEqual(statusRes.status, 200);
+  assert.strictEqual(statusRes.data.is_expired, true);
+  assert.strictEqual(statusRes.data.team_status, 'time_expired');
+
+  // Verify all questions allocated to team3 were auto-finalized and graded
+  const team3Attempts = await prisma.codeScrambleAttempt.findMany({
+    where: { teamId: team3Record.id }
+  });
+  assert.ok(team3Attempts.length > 0, 'Expiry team must have question attempts');
+  for (const att of team3Attempts) {
+    assert.strictEqual(att.isSubmitted, 1, 'Attempt must be auto-finalized on timer expiry');
+  }
+  console.log(`  ✓ PASS: Server timer expiry auto-finalized all ${team3Attempts.length} questions`);
+  passed++;
+
   // Clean up test teams
   await prisma.team.deleteMany({
-    where: { teamName: { in: [teamName, team2Name] } }
+    where: { teamName: { in: [teamName, team2Name, team3Name] } }
   });
   console.log('  ✓ Cleaned up test teams');
 
@@ -258,6 +366,7 @@ async function runTrueSwapAndScoreTests() {
   console.log(`\n==================================================`);
   console.log(`🎉 ALL ${passed} TRUE SWAP & SCORE CARD TESTS PASSED!`);
   console.log(`==================================================\n`);
+
 }
 
 runTrueSwapAndScoreTests().catch((err) => {
