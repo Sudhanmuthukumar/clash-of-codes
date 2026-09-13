@@ -20,38 +20,25 @@ const ScrambleLine = ({
   index, 
   isCorrectPosition, 
   isSelected, 
-  isDragTarget, 
   isLocked, 
   isEventEnded,
   onLineClick,
-  onDragStart,
-  onDragEnter,
-  onDragLeave,
-  onDrop,
-  onDragEnd
 }) => {
   const isDisabled = isLocked || isEventEnded;
 
   let containerClass = 'bg-gradient-to-r from-[#20150d] via-[#1a100a] to-[#140b07] border-2 border-[#5c371f] hover:border-amber-500/80 shadow-md';
   if (isSelected) {
-    containerClass = 'bg-gradient-to-r from-[#4d2d14] via-[#3a200e] to-[#2b170a] border-2 border-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.6)] ring-2 ring-amber-400 scale-[1.01] text-amber-100';
-  } else if (isDragTarget) {
-    containerClass = 'bg-gradient-to-r from-[#452814] to-[#2c160a] border-2 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/90 text-amber-100';
+    containerClass = 'bg-gradient-to-r from-[#4d2d14] via-[#3a200e] to-[#2b170a] border-2 border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.6)] ring-2 ring-amber-400 text-amber-100';
   } else if (isCorrectPosition) {
     containerClass = 'bg-gradient-to-r from-[#06331e] via-[#094127] to-[#042415] border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-emerald-100 solved-glow';
   }
 
   return (
     <div
-      draggable={!isDisabled}
-      onDragStart={(e) => onDragStart(e, index)}
-      onDragOver={(e) => e.preventDefault()}
-      onDragEnter={(e) => onDragEnter(e, index)}
-      onDragLeave={(e) => onDragLeave(e, index)}
-      onDrop={(e) => onDrop(e, index)}
-      onDragEnd={onDragEnd}
-      onClick={() => onLineClick(index)}
-      className={`flex items-stretch rounded-xl transition-all mb-2.5 overflow-hidden select-none border-b-4 relative ${
+      onClick={() => {
+        if (!isDisabled) onLineClick(index);
+      }}
+      className={`flex items-stretch rounded-xl transition-colors duration-150 mb-2.5 overflow-hidden select-none border-b-4 relative ${
         isDisabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer hover:border-amber-400/90'
       } ${
         isSelected
@@ -66,21 +53,21 @@ const ScrambleLine = ({
           : isLocked 
           ? 'Points pool exhausted (0 pts) - swaps locked' 
           : isSelected 
-          ? 'Line selected. Click another line to swap, or click again to deselect.' 
-          : 'Click to select for swap (-1 pt), or drag & drop onto another line.'
+          ? 'Line selected. Click another line to swap (-1 pt), or click again to deselect.' 
+          : 'Click to select line for swap (-1 pt).'
       }
     >
-      {/* Tactical Builder Drag Handle */}
+      {/* Tactical Builder Swap Icon Tile */}
       <div
         className={`px-3.5 py-3 flex items-center justify-center bg-black/40 border-r border-[#452814] text-amber-200/70 transition-colors ${
-          isDisabled ? 'cursor-not-allowed opacity-30' : 'cursor-grab active:cursor-grabbing hover:text-amber-300 hover:bg-black/60'
+          isDisabled ? 'cursor-not-allowed opacity-30' : 'hover:text-amber-300 hover:bg-black/60'
         }`}
-        title={isDisabled ? 'Swaps locked' : 'Drag onto another line to swap (-1 pt)'}
+        title={isSelected ? 'Selected for swap' : 'Click to select / swap (-1 pt)'}
       >
-        <span className="font-mono text-xs select-none">🧱 ⋮⋮</span>
+        <IconSwap className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-300 animate-pulse' : 'text-amber-400/60'}`} />
       </div>
 
-      {/* Carved Line Number Tile */}
+      {/* Carved Fixed Slot Number Tile */}
       <div className={`px-3.5 py-3 font-mono text-xs bg-black/30 select-none border-r border-[#452814] min-w-[2.75rem] text-center flex items-center justify-center font-bold ${
         isSelected ? 'text-amber-200 font-black bg-amber-900/60' : isCorrectPosition ? 'text-emerald-300 font-black' : 'text-amber-400'
       }`}>
@@ -100,16 +87,8 @@ const ScrambleLine = ({
         </div>
       )}
 
-      {/* Drop Target Indicator Badge */}
-      {!isSelected && isDragTarget && (
-        <div className="px-3.5 py-1 flex items-center gap-1.5 text-amber-200 text-xs font-black bg-amber-900/80 border-l-2 border-amber-400 uppercase tracking-wider font-clash shadow-inner">
-          <IconSwap className="w-3.5 h-3.5 text-amber-300" />
-          <span>DROP TO SWAP</span>
-        </div>
-      )}
-
       {/* Correct Position Status Badge */}
-      {!isSelected && !isDragTarget && isCorrectPosition && (
+      {!isSelected && isCorrectPosition && (
         <div className="px-3.5 py-1 flex items-center gap-1.5 text-emerald-300 text-xs font-black bg-emerald-900/80 border-l-2 border-emerald-500 uppercase tracking-wider font-clash shadow-inner">
           <span className="text-sm">✓</span>
           <span>CORRECT</span>
@@ -130,8 +109,6 @@ const ParticipantCodeScramble = () => {
   const [swapsCount, setSwapsCount] = useState(0);
   const [hintsCount, setHintsCount] = useState(0);
   const [selectedLineIndex, setSelectedLineIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [draggedFromIndex, setDraggedFromIndex] = useState(null);
   const [canSwap, setCanSwap] = useState(true);
   const [canHint, setCanHint] = useState(true);
   const [status, setStatus] = useState(null);
@@ -179,8 +156,6 @@ const ParticipantCodeScramble = () => {
     try {
       setActiveId(id);
       setSelectedLineIndex(null);
-      setDragOverIndex(null);
-      setDraggedFromIndex(null);
       const res = await api.get(`/participant/code-scramble/questions/${id}`);
       const data = res.data;
       setCurrentQ(data);
@@ -221,8 +196,6 @@ const ParticipantCodeScramble = () => {
     newLines[indexB] = temp;
     setLines(newLines);
     setSelectedLineIndex(null);
-    setDragOverIndex(null);
-    setDraggedFromIndex(null);
     setAutoSaveStatus('saving');
 
     // 2. Server validation and score deduction (-1 point)
@@ -262,42 +235,6 @@ const ParticipantCodeScramble = () => {
     } else {
       executeSwap(selectedLineIndex, idx);
     }
-  };
-
-  // Native Drag and Drop handlers (zero intermediate movement)
-  const handleDragStart = (e, index) => {
-    if (isEventEnded || !canSwap) return;
-    setDraggedFromIndex(index);
-    e.dataTransfer.setData('text/plain', index.toString());
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragEnter = (e, index) => {
-    if (isEventEnded || !canSwap || draggedFromIndex === null || draggedFromIndex === index) return;
-    setDragOverIndex(index);
-  };
-
-  const handleDragLeave = (e, index) => {
-    if (dragOverIndex === index) {
-      setDragOverIndex(null);
-    }
-  };
-
-  const handleDrop = (e, targetIndex) => {
-    e.preventDefault();
-    setDragOverIndex(null);
-    const fromIndexStr = e.dataTransfer.getData('text/plain');
-    const fromIndex = parseInt(fromIndexStr, 10);
-    setDraggedFromIndex(null);
-
-    if (!isNaN(fromIndex) && fromIndex !== targetIndex && !isEventEnded && canSwap) {
-      executeSwap(fromIndex, targetIndex);
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedFromIndex(null);
-    setDragOverIndex(null);
   };
 
   // Manual save option
@@ -581,43 +518,37 @@ const ParticipantCodeScramble = () => {
             <div className="flex items-center gap-2">
               <span className="text-amber-400 text-sm">⚔️</span>
               <span>
-                <strong>TRUE SWAP:</strong> Click Line A then Line B to exchange their positions (<strong>−1 pt</strong>), or drag Line A onto Line B. Zero shifting of other lines. Progress saves automatically.
+                <strong>TRUE SWAP:</strong> Click Line A then Line B to exchange their positions (<strong>−1 pt</strong>). Fixed slots &mdash; surrounding lines never shift. Progress saves automatically.
               </span>
             </div>
             {selectedLineIndex !== null && (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-clash font-bold text-amber-200 bg-amber-900/80 border border-amber-400 px-2.5 py-0.5 rounded animate-pulse">
-                  Line #{selectedLineIndex + 1} Selected &bull; Click second line to swap
+                  Line #{selectedLineIndex + 1} Selected &bull; Click second line to swap (-1 pt)
                 </span>
                 <button
                   onClick={() => setSelectedLineIndex(null)}
-                  className="text-xs text-stone-400 hover:text-stone-200 underline font-sans"
+                  className="text-xs text-stone-400 hover:text-stone-200 underline font-sans ml-2"
                 >
-                  Cancel
+                  Cancel (0 pt)
                 </button>
               </div>
             )}
           </div>
 
-          {/* Interactive Workspace: Pure Pairwise Swap Lines (Zero Intermediate Shifting) */}
+          {/* Interactive Workspace: Pure Pairwise Swap Lines (Fixed Slots, Zero Shifting) */}
           <div className="flex-grow overflow-y-auto bg-[#100b07] border-2 border-[#5c371f] rounded-xl p-4 shadow-[inset_0_4px_12px_rgba(0,0,0,0.85)]">
             <div className="space-y-1">
               {lines.map((line, index) => (
                 <ScrambleLine
-                  key={line.id}
+                  key={`slot-${index}`}
                   line={line}
                   index={index}
                   isCorrectPosition={!!correctPositions[index]}
                   isSelected={selectedLineIndex === index}
-                  isDragTarget={dragOverIndex === index}
                   isLocked={!canSwap}
                   isEventEnded={isEventEnded}
                   onLineClick={handleLineClick}
-                  onDragStart={handleDragStart}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onDragEnd={handleDragEnd}
                 />
               ))}
             </div>
