@@ -37,30 +37,6 @@ const LandingPage = () => {
           ========================================================================= */}
       <div className="flex-grow z-10 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 max-w-5xl mx-auto w-full">
         
-        {/* 1. TOP INSTITUTIONAL CARVED BANNER (Exact Match from Poster) */}
-        <header className="w-full max-w-2xl mb-4 sm:mb-6 text-center relative">
-          <div className="parchment-banner px-4 sm:px-6 py-3 sm:py-3.5 relative border-[#8c5a2b] shadow-2xl">
-            {/* Corner Rivets */}
-            <span className="rivet absolute top-2 left-2"></span>
-            <span className="rivet absolute top-2 right-2"></span>
-            <span className="rivet absolute bottom-2 left-2"></span>
-            <span className="rivet absolute bottom-2 right-2"></span>
-
-            <h2 className="text-xs sm:text-sm md:text-base font-black tracking-wider uppercase text-amber-100 font-fantasy drop-shadow">
-              SARANATHAN COLLEGE OF ENGINEERING
-            </h2>
-            <p className="text-[9px] sm:text-[10px] tracking-widest text-amber-400 font-bold uppercase mt-0.5">
-              (AN AUTONOMOUS INSTITUTION)
-            </p>
-            <div className="my-1 flex items-center justify-center gap-2">
-              <span className="h-px w-10 sm:w-16 bg-gradient-to-r from-transparent via-amber-600 to-transparent"></span>
-              <span className="text-[9px] uppercase font-bold tracking-widest text-amber-300 font-fantasy">
-                DEPARTMENT OF CSE &amp; IEI
-              </span>
-              <span className="h-px w-10 sm:w-16 bg-gradient-to-r from-transparent via-amber-600 to-transparent"></span>
-            </div>
-          </div>
-        </header>
 
         {/* 2. MAIN EXTRACTED CLASH OF CODES LOGO (From Provided Poster) */}
         <section className="text-center mb-5 sm:mb-7 relative flex flex-col items-center w-full">
@@ -197,7 +173,7 @@ const LandingPage = () => {
 
       {/* FOOTER */}
       <footer className="z-10 py-3 border-t border-stone-800/60 text-center text-[11px] text-stone-500 font-sans">
-        <p>Saranathan College of Engineering &bull; Department of CSE &amp; IEI &bull; Engineers' Day Celebration</p>
+        <p>Department of CSE &amp; IEI &bull; Engineers' Day Celebration &bull; Clash of Codes</p>
       </footer>
     </div>
   );
