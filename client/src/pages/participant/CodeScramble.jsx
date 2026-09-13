@@ -136,9 +136,14 @@ const ParticipantCodeScramble = () => {
   const fetchQuestions = async (preferredId = null) => {
     try {
       const res = await api.get('/participant/code-scramble/questions');
-      setQuestions(res.data);
-      if (res.data.length > 0) {
-        const nextId = preferredId || (activeId && res.data.some(q => q.id === activeId) ? activeId : res.data[0].id);
+      const qList = Array.isArray(res.data) 
+        ? res.data 
+        : (Array.isArray(res.data?.questions) 
+            ? res.data.questions 
+            : (Array.isArray(res.data?.data) ? res.data.data : []));
+      setQuestions(qList);
+      if (qList.length > 0) {
+        const nextId = preferredId || (activeId && qList.some(q => q.id === activeId) ? activeId : qList[0].id);
         loadQuestion(nextId);
       }
     } catch (err) {
@@ -158,11 +163,22 @@ const ParticipantCodeScramble = () => {
       setActiveId(id);
       setSelectedLineIndex(null);
       const res = await api.get(`/participant/code-scramble/questions/${id}`);
-      const data = res.data;
+      const data = res.data?.question || res.data;
+      if (!data) return;
       setCurrentQ(data);
 
-      const shuffled = data.shuffled_lines || [];
-      const order = data.current_arrangement || shuffled.map((_, i) => i);
+      const shuffled = Array.isArray(data.shuffled_lines) ? data.shuffled_lines : [];
+      let order = data.current_arrangement;
+      if (typeof order === 'string') {
+        try {
+          order = JSON.parse(order);
+        } catch {
+          order = null;
+        }
+      }
+      if (!Array.isArray(order) || order.length === 0) {
+        order = shuffled.map((_, i) => i);
+      }
 
       const mappedLines = order.map((origIdx) => ({
         id: `line-${origIdx}`,
@@ -171,7 +187,7 @@ const ParticipantCodeScramble = () => {
       }));
 
       setLines(mappedLines);
-      setCorrectPositions(data.correct_positions || []);
+      setCorrectPositions(Array.isArray(data.correct_positions) ? data.correct_positions : []);
       setStartingPoints(typeof data.starting_points === 'number' ? data.starting_points : 100);
       setCurrentPoints(typeof data.current_points === 'number' ? data.current_points : 100);
       setSwapsCount(data.swaps_count || 0);
@@ -339,7 +355,7 @@ const ParticipantCodeScramble = () => {
             <span>Clan Camp</span>
           </button>
           <div className="h-5 w-px bg-stone-700 mx-1"></div>
-          {questions.map((q, idx) => (
+          {(Array.isArray(questions) ? questions : []).map((q, idx) => (
             <button
               key={q.id}
               onClick={() => loadQuestion(q.id)}
@@ -579,7 +595,7 @@ const ParticipantCodeScramble = () => {
             </button>
 
             <div className="text-xs font-clash tracking-wider text-amber-400 font-bold uppercase">
-              QUESTION {currentQuestionIndex + 1} OF {questions.length}
+              QUESTION {currentQuestionIndex + 1} OF {(Array.isArray(questions) ? questions : []).length}
             </div>
 
             <div className="flex items-center gap-2">
