@@ -178,8 +178,58 @@
   }
 }
 
-.solved-glow {
-  animation: green-solved-pulse 1.2s ease-in-out;
+/* Clash of Codes Carved Wooden Shield Frame */
+.clash-shield-wood {
+  background: radial-gradient(circle at 50% 30%, #5d351b 0%, #3a1e0e 55%, #231208 100%);
+  border: 4px solid #8e5428;
+  box-shadow:
+    0 0 0 2px #180b05,
+    0 15px 35px rgba(0, 0, 0, 0.9),
+    inset 0 2px 4px rgba(255, 215, 0, 0.25),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.8);
+}
+
+/* Orange/Gold Ribbon Banner */
+.clash-banner-orange {
+  background: linear-gradient(180deg, #b83808 0%, #7d1f03 100%);
+  border: 2px solid #f97316;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.8),
+    inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+/* Blue 3rd Year Battle Entry Card */
+.entry-card-blue {
+  background: radial-gradient(circle at 50% 20%, #15325e 0%, #0c1c38 60%, #060e1d 100%);
+  border: 3px solid #2563eb;
+  box-shadow:
+    0 0 0 1px #040914,
+    0 12px 30px rgba(10, 30, 70, 0.7),
+    inset 0 1px 2px rgba(147, 197, 253, 0.35);
+}
+.entry-card-blue:hover {
+  border-color: #60a5fa;
+  box-shadow:
+    0 0 0 1px #040914,
+    0 16px 36px rgba(37, 99, 235, 0.5),
+    inset 0 1px 3px rgba(191, 219, 254, 0.5);
+}
+
+/* Red 2nd Year Battle Entry Card */
+.entry-card-red {
+  background: radial-gradient(circle at 50% 20%, #5e151b 0%, #380c10 60%, #1d0608 100%);
+  border: 3px solid #dc2626;
+  box-shadow:
+    0 0 0 1px #140405,
+    0 12px 30px rgba(70, 10, 15, 0.7),
+    inset 0 1px 2px rgba(252, 165, 165, 0.35);
+}
+.entry-card-red:hover {
+  border-color: #f87171;
+  box-shadow:
+    0 0 0 1px #140405,
+    0 16px 36px rgba(220, 38, 38, 0.5),
+    inset 0 1px 3px rgba(254, 202, 202, 0.5);
 }
 
 

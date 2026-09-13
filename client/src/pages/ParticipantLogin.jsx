@@ -1,18 +1,32 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import api from '../utils/api';
 import { IconSwords, IconShield } from '../components/FantasyIcons';
 
 const ParticipantLogin = () => {
-  const [year, setYear] = useState('2nd Year');
+  const [searchParams] = useSearchParams();
+  const initialYear = searchParams.get('year') === '3rd Year' || searchParams.get('year') === '3' 
+    ? '3rd Year' 
+    : '2nd Year';
+
+  const [year, setYear] = useState(initialYear);
   const [teamName, setTeamName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+
+  useEffect(() => {
+    const qYear = searchParams.get('year');
+    if (qYear === '3rd Year' || qYear === '3') {
+      setYear('3rd Year');
+    } else if (qYear === '2nd Year' || qYear === '2') {
+      setYear('2nd Year');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

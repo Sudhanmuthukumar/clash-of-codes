@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { IconSwords, IconShield, IconHammer, IconCastle, IconTrophy, IconGear } from './FantasyIcons';
 
 const Navbar = () => {
   const { user, logout, isAdmin, isParticipant } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Requirement: Completely remove navigation bar from the MAIN HOME PAGE
+  if (location.pathname === '/') {
+    return null;
+  }
 
   const handleLogout = () => {
     logout();
