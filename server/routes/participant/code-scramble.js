@@ -506,7 +506,7 @@ router.post('/questions/:id/hint', actionLimiter, async (req, res) => {
                 success: true,
                 line_order: lineOrder,
                 correct_positions: correctPositions,
-                placed_index: targetIdx,
+                placed_index: clueRes.targetIdx,
                 starting_points: startingPoints,
                 current_points: currentPoints,
                 swaps_count: swapsCount,

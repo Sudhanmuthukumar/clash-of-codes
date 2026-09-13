@@ -411,7 +411,7 @@ const ParticipantCodeScramble = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-clash uppercase tracking-wider text-amber-200 bg-red-950 border border-red-600 px-2.5 py-0.5 rounded shadow flex items-center gap-1.5">
                     <IconHammer className="w-3 h-3 text-amber-300" />
-                    <span>BUILDER'S WORKSHOP &bull; Q{currentQ.question_number}</span>
+                    <span>BUILDER'S WORKSHOP &bull; Q{currentQuestionIndex + 1}</span>
                   </span>
                   {currentQ.title && (
                     <h3 className="text-base font-black font-clash text-amber-100 tracking-wide">{currentQ.title}</h3>

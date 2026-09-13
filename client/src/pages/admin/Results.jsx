@@ -112,7 +112,18 @@ const Results = () => {
           }`}
         >
           <IconHammer className="w-4 h-4" />
-          <span>Code Scramble (2nd Year)</span>
+          <span>Code Scramble &mdash; Round 1 (2nd Year)</span>
+        </button>
+        <button
+          onClick={() => setActiveEventId(3)}
+          className={`px-6 py-3 font-bold transition-all border-b-2 flex items-center gap-2 ${
+            activeEventId === 3
+              ? 'text-amber-400 border-amber-400 bg-amber-950/30'
+              : 'text-stone-400 border-transparent hover:text-stone-200'
+          }`}
+        >
+          <IconHammer className="w-4 h-4" />
+          <span>Code Scramble &mdash; Round 2 (2nd Year)</span>
         </button>
         <button
           onClick={() => setActiveEventId(2)}

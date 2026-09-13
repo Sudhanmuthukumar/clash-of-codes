@@ -62,6 +62,7 @@ const CreateTeam = () => {
     try {
       const payload = {
         year: formData.year,
+        event_id: formData.event_id || 1,
         team_name: formData.team_name.trim(),
         member_1_name: formData.member_1_name.trim(),
         member_1_section: formData.member_1_section.trim(),
@@ -128,10 +129,21 @@ const CreateTeam = () => {
             <h3 className="text-lg font-bold font-fantasy text-amber-200 mb-4 border-b border-stone-800 pb-2">Clan Information</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="label text-xs">Academic Year (Determines Battle)</label>
-                <select name="year" value={formData.year} onChange={handleChange} className="input-field text-sm" required>
-                  <option value="2nd Year">2nd Year (Code Scramble &mdash; Builder's Challenge)</option>
-                  <option value="3rd Year">3rd Year (Crack the Code &mdash; Code Invasion)</option>
+                <label className="label text-xs">Battle Track & Round</label>
+                <select 
+                  name="event_id" 
+                  value={formData.event_id || 1} 
+                  onChange={e => {
+                    const val = parseInt(e.target.value);
+                    const selectedYear = val === 2 ? '3rd Year' : '2nd Year';
+                    setFormData(prev => ({ ...prev, event_id: val, year: selectedYear }));
+                  }} 
+                  className="input-field text-sm" 
+                  required
+                >
+                  <option value={1}>2nd Year &mdash; Code Scramble Round 1</option>
+                  <option value={3}>2nd Year &mdash; Code Scramble Round 2</option>
+                  <option value={2}>3rd Year &mdash; Crack the Code (Hidden Tech)</option>
                 </select>
               </div>
               <div>

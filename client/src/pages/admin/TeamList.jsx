@@ -124,7 +124,8 @@ const TeamList = () => {
       member_2_name: team.member_2_name || '',
       member_2_section: team.member_2_section || 'A',
       has_member_2: !!team.member_2_name,
-      email: team.email || ''
+      email: team.email || '',
+      event_id: team.event_id || 1
     });
   };
 
@@ -133,6 +134,7 @@ const TeamList = () => {
     try {
       const payload = {
         team_name: editTeamData.team_name.trim(),
+        event_id: editTeamData.event_id,
         member_1_name: editTeamData.member_1_name.trim(),
         member_1_section: editTeamData.member_1_section.trim(),
         member_2_name: editTeamData.has_member_2 && editTeamData.member_2_name.trim() ? editTeamData.member_2_name.trim() : null,
@@ -530,6 +532,19 @@ const TeamList = () => {
                   onChange={e => setEditTeamData({ ...editTeamData, team_name: e.target.value })}
                   required
                 />
+              </div>
+
+              <div>
+                <label className="label text-xs">Assigned Event / Round</label>
+                <select
+                  className="input-field text-sm"
+                  value={editTeamData.event_id || 1}
+                  onChange={e => setEditTeamData({ ...editTeamData, event_id: parseInt(e.target.value) })}
+                >
+                  {events.map(ev => (
+                    <option key={ev.id} value={ev.id}>{ev.name} ({ev.year})</option>
+                  ))}
+                </select>
               </div>
 
               <div>

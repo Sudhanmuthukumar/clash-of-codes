@@ -132,10 +132,25 @@ router.post('/participant/register', loginLimiter, async (req, res) => {
             return res.status(400).json({ error: `Team name "${cleanTeamName}" is already registered. Please pick another name.` });
         }
 
-        // 3. Event Determination based on Year
-        const event = await prisma.event.findFirst({
-            where: { year }
-        });
+        // 3. Event Determination based on Year and optional Round
+        let event = null;
+        if (req.body.event_id) {
+            event = await prisma.event.findUnique({ where: { id: parseInt(req.body.event_id) } });
+        } else if (req.body.round) {
+            const roundTerm = req.body.round.includes('2') ? 'Round 2' : 'Round 1';
+            event = await prisma.event.findFirst({
+                where: {
+                    year,
+                    name: { contains: roundTerm, mode: 'insensitive' }
+                }
+            });
+        }
+        if (!event) {
+            event = await prisma.event.findFirst({
+                where: { year },
+                orderBy: { id: 'asc' }
+            });
+        }
         if (!event) {
             return res.status(400).json({ error: `No active event configured for ${year}.` });
         }
@@ -203,11 +218,16 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
         }
 
         // Case-insensitive team name lookup
+        const whereClause = {
+            teamName: { equals: team_name.trim(), mode: 'insensitive' },
+            year
+        };
+        if (req.body.event_id) {
+            whereClause.eventId = parseInt(req.body.event_id);
+        }
+
         const team = await prisma.team.findFirst({
-            where: {
-                teamName: { equals: team_name.trim(), mode: 'insensitive' },
-                year
-            },
+            where: whereClause,
             include: { event: true }
         });
         

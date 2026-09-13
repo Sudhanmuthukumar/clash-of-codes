@@ -163,8 +163,13 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: `Team name "${cleanTeamName}" already exists.` });
         }
 
-        const event = await prisma.event.findFirst({ where: { year } });
-        if (!event) return res.status(400).json({ error: 'No event found for this year' });
+        let event = null;
+        if (req.body.event_id) {
+            event = await prisma.event.findUnique({ where: { id: parseInt(req.body.event_id) } });
+        } else {
+            event = await prisma.event.findFirst({ where: { year } });
+        }
+        if (!event) return res.status(400).json({ error: 'No event found for this selection' });
 
         const pwd = crypto.randomBytes(4).toString('hex');
         const hash = bcrypt.hashSync(pwd, 12);
@@ -300,6 +305,9 @@ router.put('/:id', async (req, res) => {
         if (m2_section !== undefined) {
             updateData.member2Section = m2_section ? m2_section.trim() : null;
             updateData.participant2Batch = m2_section ? m2_section.trim() : null;
+        }
+        if (req.body.event_id) {
+            updateData.eventId = parseInt(req.body.event_id);
         }
 
         await prisma.team.update({

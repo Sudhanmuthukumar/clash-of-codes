@@ -4,6 +4,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import api from '../../utils/api';
 
 const AdminCodeScramble = () => {
+  const [selectedRound, setSelectedRound] = useState(1); // 1 = Round 1 (Event 1), 2 = Round 2 (Event 3)
   const [questions, setQuestions] = useState([]);
   const [eventData, setEventData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,14 +26,16 @@ const AdminCodeScramble = () => {
 
   const toast = useToast();
 
+  const activeEventId = selectedRound === 1 ? 1 : 3;
+
   const fetchData = async () => {
     try {
       const [qRes, evRes] = await Promise.all([
-        api.get('/admin/questions?event_id=1'),
+        api.get(`/admin/questions?event_id=${activeEventId}`),
         api.get('/admin/events'),
       ]);
       setQuestions(qRes.data);
-      const ev = evRes.data.find(e => e.id === 1 || e.name.toLowerCase().includes('scramble'));
+      const ev = evRes.data.find(e => e.id === activeEventId || (selectedRound === 1 && e.name.toLowerCase().includes('round 1')) || (selectedRound === 2 && e.name.toLowerCase().includes('round 2')));
       setEventData(ev);
     } catch (err) {
       toast.error('Failed to load Code Scramble data');
@@ -43,7 +46,7 @@ const AdminCodeScramble = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedRound]);
 
   const handleOpenModal = (q = null) => {
     if (q) {
@@ -122,7 +125,7 @@ const AdminCodeScramble = () => {
         toast.success('Question updated successfully');
       } else {
         await api.post('/admin/questions/code-scramble', {
-          event_id: 1,
+          event_id: activeEventId,
           title: formData.title,
           marks: parseInt(formData.marks, 10),
           problem_description: formData.problem_description,
@@ -197,6 +200,30 @@ const AdminCodeScramble = () => {
             + Forge Challenge
           </button>
         </div>
+      </div>
+
+      {/* Round Selection Tabs */}
+      <div className="flex border-b border-stone-800 font-sans text-sm">
+        <button
+          onClick={() => setSelectedRound(1)}
+          className={`px-6 py-3 font-bold transition-all border-b-2 flex items-center gap-2 ${
+            selectedRound === 1
+              ? 'text-amber-400 border-amber-400 bg-amber-950/30'
+              : 'text-stone-400 border-transparent hover:text-stone-200'
+          }`}
+        >
+          <span>⚔️ Round 1 Pool (10 Challenges)</span>
+        </button>
+        <button
+          onClick={() => setSelectedRound(2)}
+          className={`px-6 py-3 font-bold transition-all border-b-2 flex items-center gap-2 ${
+            selectedRound === 2
+              ? 'text-amber-400 border-amber-400 bg-amber-950/30'
+              : 'text-stone-400 border-transparent hover:text-stone-200'
+          }`}
+        >
+          <span>🔥 Round 2 Pool (10 Challenges)</span>
+        </button>
       </div>
 
       {/* Stats Ribbon */}

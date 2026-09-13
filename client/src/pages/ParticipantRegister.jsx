@@ -107,6 +107,7 @@ const ParticipantRegister = () => {
       const payload = {
         team_name: formData.team_name.trim(),
         year: formData.year,
+        event_id: formData.event_id || (formData.year === '3rd Year' ? 2 : 1),
         member_1_name: formData.member_1_name.trim(),
         member_1_section: formData.member_1_section.trim(),
         member_2_name: formData.has_member_2 && formData.member_2_name.trim() ? formData.member_2_name.trim() : null,
@@ -215,21 +216,26 @@ const ParticipantRegister = () => {
             />
           </div>
 
-          {/* Year (Auto-determines event) */}
+          {/* Year & Round Selection */}
           <div>
             <label className="label flex justify-between items-center">
-              <span>YEAR</span>
-              <span className="text-[11px] text-stone-500">Determines battle automatically</span>
+              <span>BATTLE TRACK & ROUND</span>
+              <span className="text-[11px] text-stone-500">Determines battle arena</span>
             </label>
             <select
-              name="year"
+              name="round_selection"
               className="input-field font-medium text-sm"
-              value={formData.year}
-              onChange={handleChange}
+              value={formData.event_id || (formData.year === '3rd Year' ? 2 : 1)}
+              onChange={e => {
+                const val = parseInt(e.target.value);
+                const yr = val === 2 ? '3rd Year' : '2nd Year';
+                setFormData(prev => ({ ...prev, event_id: val, year: yr }));
+              }}
               required
             >
-              <option value="2nd Year">2nd Year &rarr; CODE SCRAMBLE (Builder's Challenge)</option>
-              <option value="3rd Year">3rd Year &rarr; CRACK THE CODE (Code Invasion)</option>
+              <option value={1}>2nd Year &rarr; CODE SCRAMBLE: Round 1</option>
+              <option value={3}>2nd Year &rarr; CODE SCRAMBLE: Round 2</option>
+              <option value={2}>3rd Year &rarr; CRACK THE CODE (Code Invasion)</option>
             </select>
           </div>
 
