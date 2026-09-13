@@ -513,27 +513,33 @@ const ParticipantCodeScramble = () => {
             </div>
           )}
 
-          {/* Builder True Swap Guidance Banner */}
-          <div className="bg-stone-900/80 border border-stone-800 rounded-lg px-4 py-2 mb-2.5 text-xs flex flex-wrap items-center justify-between gap-2 text-stone-300">
-            <div className="flex items-center gap-2">
-              <span className="text-amber-400 text-sm">⚔️</span>
-              <span>
-                <strong>TRUE SWAP:</strong> Click Line A then Line B to exchange their positions (<strong>−1 pt</strong>). Fixed slots &mdash; surrounding lines never shift. Progress saves automatically.
+          {/* Builder True Swap Guidance Banner - Fixed height & no wrapping to prevent ANY vertical layout shift */}
+          <div className="bg-stone-900/80 border border-stone-800 rounded-lg px-4 py-2 mb-2.5 text-xs flex items-center justify-between gap-3 text-stone-300 min-h-[42px] h-[42px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-amber-400 text-sm shrink-0">⚔️</span>
+              <span className="truncate">
+                <strong>TRUE SWAP:</strong> Click Line A then Line B to exchange positions (<strong>−1 pt</strong>). Surrounding lines remain stationary.
               </span>
             </div>
-            {selectedLineIndex !== null && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-clash font-bold text-amber-200 bg-amber-900/80 border border-amber-400 px-2.5 py-0.5 rounded animate-pulse">
-                  Line #{selectedLineIndex + 1} Selected &bull; Click second line to swap (-1 pt)
+            <div className="flex items-center gap-2 shrink-0">
+              {selectedLineIndex !== null ? (
+                <>
+                  <span className="text-xs font-clash font-bold text-amber-200 bg-amber-900/80 border border-amber-400 px-2 py-0.5 rounded animate-pulse whitespace-nowrap">
+                    Line #{selectedLineIndex + 1} Selected &bull; Click Line B
+                  </span>
+                  <button
+                    onClick={() => setSelectedLineIndex(null)}
+                    className="text-xs text-stone-400 hover:text-stone-200 underline font-sans ml-1 whitespace-nowrap"
+                  >
+                    Cancel (0 pt)
+                  </button>
+                </>
+              ) : (
+                <span className="text-[11px] text-stone-500 font-clash tracking-wider uppercase whitespace-nowrap">
+                  CLICK LINE TO SELECT
                 </span>
-                <button
-                  onClick={() => setSelectedLineIndex(null)}
-                  className="text-xs text-stone-400 hover:text-stone-200 underline font-sans ml-2"
-                >
-                  Cancel (0 pt)
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Interactive Workspace: Pure Pairwise Swap Lines (Fixed Slots, Zero Shifting) */}
