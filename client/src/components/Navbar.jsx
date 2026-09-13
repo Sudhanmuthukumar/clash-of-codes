@@ -9,8 +9,8 @@ const Navbar = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Requirement: Completely remove navigation bar from the MAIN HOME PAGE
-  if (location.pathname === '/') {
+  // Requirement: Completely remove navigation bar from the landing and auth/register pages
+  if (location.pathname === '/' || location.pathname === '/register' || location.pathname === '/login') {
     return null;
   }
 

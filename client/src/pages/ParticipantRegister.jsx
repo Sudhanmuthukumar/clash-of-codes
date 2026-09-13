@@ -405,13 +405,18 @@ const ParticipantRegister = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center border-t border-stone-800 pt-4">
+        <div className="mt-6 text-center border-t border-stone-800 pt-4 space-y-2">
           <p className="text-xs text-stone-400">
             Already have a clan?{' '}
             <Link to="/login" className="text-amber-400 hover:text-amber-300 font-bold underline transition-colors">
               Enter Battle
             </Link>
           </p>
+          <div>
+            <Link to="/" className="text-xs text-stone-500 hover:text-amber-300/80 transition-colors font-sans">
+              &larr; Back to Battle Gate
+            </Link>
+          </div>
         </div>
       </div>
     </div>
