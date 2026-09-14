@@ -242,33 +242,24 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials or team disabled' });
         }
 
-        // 2nd Year Active Round Resolution:
-        // A single team account is shared across Round 1 and Round 2.
-        // If an event_id was explicitly requested, verify it matches the year.
-        // Otherwise, if Round 2 is live (or if Round 1 is ended and Round 2 is active), point to Round 2.
+        // Active Round Resolution:
+        // A single team account is shared across Round 1 and Round 2 for each year.
+        // Resolve the active event strictly based on which round is currently 'live'.
         let activeEventId = team.eventId;
-        if (req.body.event_id) {
-            const requestedEvent = await prisma.event.findFirst({
-                where: { id: parseInt(req.body.event_id), year: team.year }
-            });
-            if (requestedEvent) {
-                activeEventId = requestedEvent.id;
-            }
+        const liveEvent = await prisma.event.findFirst({
+            where: { year: team.year, status: 'live' },
+            orderBy: { id: 'asc' }
+        });
+
+        if (liveEvent) {
+            activeEventId = liveEvent.id;
         } else {
-            const events = await prisma.event.findMany({
+            // Fallback if none live: default to Round 1
+            const r1 = await prisma.event.findFirst({
                 where: { year: team.year },
                 orderBy: { id: 'asc' }
             });
-            const r1 = events.find(e => e.name.toLowerCase().includes('round 1')) || events[0];
-            const r2 = events.find(e => e.name.toLowerCase().includes('round 2')) || events[1];
-
-            if (r2 && r2.status === 'live' && (!r1 || r1.status !== 'live')) {
-                activeEventId = r2.id;
-            } else if (r1 && r1.status === 'live') {
-                activeEventId = r1.id;
-            } else if (r1 && r1.status === 'ended' && r2 && r2.status !== 'ended') {
-                activeEventId = r2.id;
-            } else if (r1) {
+            if (r1) {
                 activeEventId = r1.id;
             }
         }

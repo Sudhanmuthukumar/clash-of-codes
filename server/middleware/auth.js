@@ -35,24 +35,47 @@ function authenticateToken(req, res, next) {
         }
         
         let eventId = user.eventId;
-        const requestedEventId = parseInt(req.headers['x-event-id'] || req.query.event_id || req.body?.eventId);
         
-        // If participant requested a specific round/eventId, validate that it belongs to their year
-        if (user.role === 'participant' && requestedEventId && !isNaN(requestedEventId)) {
+        // For participants: strictly server-authoritative round resolution.
+        // Resolve the currently LIVE event for the team's academic year.
+        // If a round is requested via header/query/body, ONLY honor it if that event is actually 'live'.
+        // Participants cannot spoof or access inactive rounds.
+        if (user.role === 'participant' && user.teamId) {
             try {
-                const targetEvent = await prisma.event.findUnique({
-                    where: { id: requestedEventId },
-                    select: { id: true, year: true }
-                });
                 const team = await prisma.team.findUnique({
                     where: { id: user.teamId },
-                    select: { year: true }
+                    select: { year: true, eventId: true }
                 });
-                if (targetEvent && team && targetEvent.year === team.year) {
-                    eventId = targetEvent.id;
+                if (team) {
+                    const requestedEventId = parseInt(req.headers['x-event-id'] || req.query.event_id || req.body?.eventId);
+                    if (requestedEventId && !isNaN(requestedEventId)) {
+                        const targetEvent = await prisma.event.findUnique({
+                            where: { id: requestedEventId },
+                            select: { id: true, year: true, status: true }
+                        });
+                        // Only allow client requested round if it belongs to their year AND is live!
+                        if (targetEvent && targetEvent.year === team.year && targetEvent.status === 'live') {
+                            eventId = targetEvent.id;
+                        }
+                    }
+                    
+                    // If eventId is not set to a live event, resolve the live event for this year
+                    const currentEvent = await prisma.event.findUnique({
+                        where: { id: eventId },
+                        select: { id: true, status: true, year: true }
+                    });
+                    if (!currentEvent || currentEvent.status !== 'live' || currentEvent.year !== team.year) {
+                        const liveEvent = await prisma.event.findFirst({
+                            where: { year: team.year, status: 'live' },
+                            orderBy: { id: 'asc' }
+                        });
+                        if (liveEvent) {
+                            eventId = liveEvent.id;
+                        }
+                    }
                 }
             } catch (e) {
-                console.error('Error resolving active event:', e);
+                console.error('Error resolving authoritative active event:', e);
             }
         }
 

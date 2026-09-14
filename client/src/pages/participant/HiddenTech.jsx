@@ -171,17 +171,6 @@ const ParticipantHiddenTech = () => {
   const allAttempted = currentQ?.all_attempted || (subQuestions.length > 0 && subQuestions.every(s => s.is_attempted));
   const hasFinalOutput = !!currentQ?.has_final_output;
 
-  const activeEventId = parseInt(sessionStorage.getItem('tech_arena_active_event_id') || '2', 10);
-  const selectedRound = activeEventId === 4 ? 2 : 1;
-
-  const switchRound = (r) => {
-    const targetId = r === 2 ? 4 : 2;
-    sessionStorage.setItem('tech_arena_active_event_id', targetId.toString());
-    setLoading(true);
-    fetchStatus();
-    fetchQuestions();
-  };
-
   return (
     <TestModeGuard
       eventName="Crack the Code"
@@ -217,30 +206,6 @@ const ParticipantHiddenTech = () => {
             <IconCastle className="w-3.5 h-3.5 text-amber-400" />
             <span>Clan Camp</span>
           </button>
-          
-          {/* Round Toggle in Header */}
-          <div className="flex items-center bg-stone-950 p-0.5 rounded-lg border border-stone-800 shrink-0">
-            <button
-              onClick={() => switchRound(1)}
-              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
-                selectedRound === 1
-                  ? 'bg-amber-500 text-stone-950 shadow'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              R1
-            </button>
-            <button
-              onClick={() => switchRound(2)}
-              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
-                selectedRound === 2
-                  ? 'bg-amber-500 text-stone-950 shadow'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              R2
-            </button>
-          </div>
 
           <div className="h-5 w-px bg-stone-700 mx-1"></div>
           {questions.map((q, idx) => (

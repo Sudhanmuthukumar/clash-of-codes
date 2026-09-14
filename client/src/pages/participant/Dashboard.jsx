@@ -69,17 +69,6 @@ const ParticipantDashboard = () => {
 
   const questionsList = data.questions || [];
 
-  // Available rounds for this team's academic year
-  const defaultR1Id = isSecondYear ? 1 : 2;
-  const defaultR2Id = isSecondYear ? 3 : 4;
-  const activeEventId = parseInt(sessionStorage.getItem('tech_arena_active_event_id') || data.event_id || defaultR1Id, 10);
-
-  const switchRound = (targetEventId) => {
-    sessionStorage.setItem('tech_arena_active_event_id', targetEventId.toString());
-    setLoading(true);
-    fetchData();
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="mb-8 flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-stone-800 pb-6">
@@ -101,37 +90,6 @@ const ParticipantDashboard = () => {
             <span>Finish Battle</span>
           </button>
         )}
-      </div>
-
-      {/* Round Switcher Tabs */}
-      <div className="mb-6 flex gap-3 border-b border-stone-800 pb-4 font-fantasy">
-        <button
-          onClick={() => switchRound(defaultR1Id)}
-          className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-            activeEventId === defaultR1Id
-              ? 'bg-amber-500 text-stone-950 shadow-md shadow-amber-500/20'
-              : 'bg-stone-900/80 text-stone-300 hover:bg-stone-800 border border-stone-700'
-          }`}
-        >
-          <span>⚔️ ROUND 1</span>
-          <span className="text-xs font-mono font-normal">
-            ({isSecondYear ? 'Code Scramble' : 'Crack the Code'})
-          </span>
-        </button>
-
-        <button
-          onClick={() => switchRound(defaultR2Id)}
-          className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-            activeEventId === defaultR2Id
-              ? 'bg-amber-500 text-stone-950 shadow-md shadow-amber-500/20'
-              : 'bg-stone-900/80 text-stone-300 hover:bg-stone-800 border border-stone-700'
-          }`}
-        >
-          <span>🔥 ROUND 2</span>
-          <span className="text-xs font-mono font-normal">
-            ({isSecondYear ? 'Code Scramble' : 'Crack the Code'})
-          </span>
-        </button>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">

@@ -371,41 +371,6 @@ const ParticipantCodeScramble = () => {
             <IconCastle className="w-3.5 h-3.5 text-amber-400" />
             <span>Clan Camp</span>
           </button>
-
-          {/* Round Toggle in Header */}
-          <div className="flex items-center bg-stone-950 p-0.5 rounded-lg border border-stone-800 shrink-0">
-            <button
-              onClick={() => {
-                sessionStorage.setItem('tech_arena_active_event_id', '1');
-                setLoading(true);
-                fetchStatus();
-                fetchQuestions();
-              }}
-              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
-                (parseInt(sessionStorage.getItem('tech_arena_active_event_id') || '1', 10) === 1)
-                  ? 'bg-amber-500 text-stone-950 shadow'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              R1
-            </button>
-            <button
-              onClick={() => {
-                sessionStorage.setItem('tech_arena_active_event_id', '3');
-                setLoading(true);
-                fetchStatus();
-                fetchQuestions();
-              }}
-              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
-                (parseInt(sessionStorage.getItem('tech_arena_active_event_id') || '1', 10) === 3)
-                  ? 'bg-amber-500 text-stone-950 shadow'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              R2
-            </button>
-          </div>
-
           <div className="h-5 w-px bg-stone-700 mx-1"></div>
           {(Array.isArray(questions) ? questions : []).map((q, idx) => (
             <button
@@ -558,16 +523,18 @@ const ParticipantCodeScramble = () => {
             </div>
           )}
 
-          {/* Problem Description Card */}
+          {/* Problem Description Card - Scrollable within container to prevent whole-page displacement */}
           {currentQ.problem_description && (
-            <div className="bg-[#1c130b] border-2 border-[#5c371f] rounded-xl p-3.5 mb-3 shadow-md relative overflow-hidden">
-              <div className="text-[11px] font-clash uppercase tracking-wider text-amber-400 font-bold mb-1 flex items-center gap-1.5">
-                <IconHammer className="w-3.5 h-3.5 text-amber-400" />
+            <div className="bg-[#1c130b] border-2 border-[#5c371f] rounded-xl p-3.5 mb-3 shadow-md relative flex flex-col max-h-44 sm:max-h-48 overflow-hidden shrink-0">
+              <div className="text-[11px] font-clash uppercase tracking-wider text-amber-400 font-bold mb-1.5 flex items-center gap-1.5 shrink-0">
+                <IconHammer className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>PROBLEM DESCRIPTION &bull; OBJECTIVE</span>
               </div>
-              <p className="text-sm text-stone-200 font-sans leading-relaxed whitespace-pre-wrap">
-                {currentQ.problem_description}
-              </p>
+              <div className="overflow-y-auto pr-2 custom-scrollbar">
+                <p className="text-sm text-stone-200 font-sans leading-relaxed whitespace-pre-wrap">
+                  {currentQ.problem_description}
+                </p>
+              </div>
             </div>
           )}
 
