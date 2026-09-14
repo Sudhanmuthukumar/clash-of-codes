@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Module-level cached client offset to prevent jitter across re-renders
-let cachedClientOffset = null;
+// Module-level stable clock offset: computed ONCE, remains stable forever across renders/re-renders
+let stableClockOffset = null;
+
+export const getAuthoritativeNow = (serverTime) => {
+  if (stableClockOffset === null && serverTime) {
+    const serverMs = new Date(serverTime).getTime();
+    if (!isNaN(serverMs)) {
+      stableClockOffset = serverMs - Date.now();
+    }
+  }
+  return Date.now() + (stableClockOffset || 0);
+};
 
 const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration = 0, eventStatus, onExpire }) => {
   const normStatus = (eventStatus || '').toUpperCase();
@@ -9,87 +19,83 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
   const isPaused = normStatus === 'PAUSED';
   const isEnded = normStatus === 'ENDED' || normStatus === 'TIME_EXPIRED';
   const isLive = normStatus === 'LIVE' || normStatus === 'ACTIVE';
-  const targetExpiry = expiresAt ? new Date(expiresAt).getTime() : null;
 
-  // Compute and memoize stable client offset
-  if (serverTime && cachedClientOffset === null) {
-    const serverRef = new Date(serverTime).getTime();
-    const localNow = Date.now();
-    cachedClientOffset = serverRef - localNow;
-  }
-
-  const computeRemainingSeconds = () => {
+  // Calculate authoritative remaining seconds strictly from expiresAt
+  const computeAuthoritativeRemaining = () => {
     if (isNotStarted) return (timeLimitMinutes || 40) * 60;
     if (isEnded) return 0;
 
-    const offset = cachedClientOffset !== null ? cachedClientOffset : 0;
-    const now = Date.now() + offset;
-
-    if (expiresAt) {
-      const exp = new Date(expiresAt).getTime();
-      return Math.max(0, Math.floor((exp - now) / 1000));
-    }
-
-    if (startTime) {
-      const start = new Date(startTime).getTime();
-      const limitMs = (timeLimitMinutes || 40) * 60 * 1000;
-      const pauseMs = (pauseDuration || 0) * 1000;
-      const elapsed = now - start - pauseMs;
-      return Math.max(0, Math.floor((limitMs - elapsed) / 1000));
-    }
-
-    // While waiting for server-authoritative expiresAt/status, do NOT return 40:00 if live/in-progress
-    if (isLive) {
+    // While in-progress/live, expiresAt from server TestSession is the SOLE authoritative source
+    if (!expiresAt) {
       return null;
     }
 
-    return (timeLimitMinutes || 40) * 60;
+    const expMs = new Date(expiresAt).getTime();
+    if (isNaN(expMs)) return null;
+
+    const authNow = getAuthoritativeNow(serverTime);
+    const remainingMs = expMs - authNow;
+    return Math.max(0, Math.floor(remainingMs / 1000));
   };
 
-  const initialRemaining = computeRemainingSeconds();
-  const [timeLeft, setTimeLeft] = useState(initialRemaining);
-  const prevTimeLeftRef = useRef(null);
-  const minTimeSeenRef = useRef(initialRemaining !== null ? initialRemaining : null);
+  const [timeLeft, setTimeLeft] = useState(() => computeAuthoritativeRemaining());
+  const prevDisplayedRef = useRef(null);
+  const minDisplayedRef = useRef(null);
 
   useEffect(() => {
-    if (serverTime && cachedClientOffset === null) {
-      const serverRef = new Date(serverTime).getTime();
-      const localNow = Date.now();
-      cachedClientOffset = serverRef - localNow;
+    // If paused or not started, don't run countdown interval
+    if (isPaused || isNotStarted || isEnded) {
+      const staticVal = computeAuthoritativeRemaining();
+      setTimeLeft(staticVal);
+      return;
     }
 
     const updateTimer = () => {
-      let secs = computeRemainingSeconds();
+      const calculated = computeAuthoritativeRemaining();
 
-      // If waiting for authoritative expiry time, keep null until ready
-      if (secs === null) {
+      if (calculated === null) {
         setTimeLeft(null);
         return;
       }
 
-      // MONOTONIC CLAMP: For an active running session, the visible timer must ONLY decrease or stay equal.
-      // It must never increase due to millisecond jitter or clock skew, and never flash higher.
-      if (isLive && (targetExpiry || startTime)) {
-        if (minTimeSeenRef.current === null) {
-          minTimeSeenRef.current = secs;
+      const authNow = getAuthoritativeNow(serverTime);
+      const prev = prevDisplayedRef.current;
+
+      if (prev !== null && calculated > prev && import.meta.env?.DEV) {
+        console.error('[TIMER ANOMALY: INCREMENT DETECTED]', {
+          previousDisplayedSeconds: prev,
+          newCalculatedSeconds: calculated,
+          expiresAt,
+          authoritativeNow: authNow,
+          stableClockOffset
+        });
+      }
+
+      // Strictly monotonic enforcement:
+      // Once a timer has displayed a value for an active session, it must NEVER increase.
+      let finalSecs = calculated;
+      if (minDisplayedRef.current === null) {
+        minDisplayedRef.current = calculated;
+      } else {
+        if (finalSecs > minDisplayedRef.current) {
+          finalSecs = minDisplayedRef.current;
         } else {
-          secs = Math.min(secs, minTimeSeenRef.current);
-          minTimeSeenRef.current = secs;
+          minDisplayedRef.current = finalSecs;
         }
       }
 
-      setTimeLeft(secs);
+      prevDisplayedRef.current = finalSecs;
+      setTimeLeft(finalSecs);
 
-      if (secs === 0 && prevTimeLeftRef.current !== null && prevTimeLeftRef.current > 0) {
+      if (finalSecs === 0 && prev !== null && prev > 0) {
         if (onExpire) onExpire();
       }
-      prevTimeLeftRef.current = secs;
     };
 
     updateTimer();
-    const timer = setInterval(updateTimer, 1000);
-    return () => clearInterval(timer);
-  }, [expiresAt, startTime, eventStatus, timeLimitMinutes, pauseDuration, isNotStarted, isEnded, isPaused, isLive, targetExpiry]);
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt, eventStatus, isNotStarted, isPaused, isEnded, serverTime, onExpire]);
 
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined) {
@@ -136,4 +142,3 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
 };
 
 export default CountdownTimer;
-

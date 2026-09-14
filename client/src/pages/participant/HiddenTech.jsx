@@ -44,7 +44,13 @@ const ParticipantHiddenTech = () => {
   const fetchStatus = async () => {
     try {
       const res = await api.get('/participant/event/status');
-      setStatus(res.data);
+      setStatus(prev => ({
+        ...(prev || {}),
+        ...res.data,
+        expires_at: res.data?.expires_at || prev?.expires_at || null,
+        start_time: res.data?.start_time || prev?.start_time || null,
+        server_time: res.data?.server_time || prev?.server_time || null
+      }));
     } catch (err) {
       console.error(err);
     }
