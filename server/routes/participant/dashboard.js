@@ -95,10 +95,10 @@ router.get('/', async (req, res) => {
             }
         } else if (team.eventStartedAt && event.status === 'live') {
             const elapsed = Math.floor((server_time - new Date(team.eventStartedAt)) / 1000);
-            const totalAllowed = (40 * 60) + pauseDuration;
+            const totalAllowed = ((event.timeLimitMinutes || 40) * 60) + pauseDuration;
             remaining_seconds = Math.max(0, totalAllowed - elapsed);
         } else {
-            remaining_seconds = 40 * 60;
+            remaining_seconds = (event.timeLimitMinutes || 40) * 60;
         }
 
         const m1Name = team.member1Name || team.participant1Name;
@@ -136,8 +136,8 @@ router.get('/', async (req, res) => {
             questions: questionsList,
             start_time: testSession ? testSession.startedAt.toISOString() : (team.eventStartedAt ? team.eventStartedAt.toISOString() : null),
             expires_at: testSession ? testSession.expiresAt.toISOString() : null,
-            time_limit: 40,
-            time_limit_minutes: 40,
+            time_limit: event.timeLimitMinutes || 40,
+            time_limit_minutes: event.timeLimitMinutes || 40,
             server_time: server_time.toISOString(),
             remaining_seconds,
             pause_duration: pauseDuration,

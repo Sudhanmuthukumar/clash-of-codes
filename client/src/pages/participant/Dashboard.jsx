@@ -145,7 +145,8 @@ const ParticipantDashboard = () => {
           <CountdownTimer 
             serverTime={status.server_time}
             startTime={status.start_time}
-            timeLimitMinutes={status.time_limit_minutes || data.time_limit}
+            expiresAt={status.expires_at || data.expires_at}
+            timeLimitMinutes={status.time_limit_minutes || data.time_limit_minutes || data.time_limit}
             pauseDuration={status.pause_duration || status.pause_duration_seconds}
             eventStatus={status.status}
           />

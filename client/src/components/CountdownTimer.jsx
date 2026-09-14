@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const CountdownTimer = ({ serverTime, startTime, timeLimitMinutes, pauseDuration = 0, eventStatus, onExpire }) => {
+const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration = 0, eventStatus, onExpire }) => {
   const [timeLeft, setTimeLeft] = useState(0);
   const prevTimeLeftRef = useRef(null);
 
@@ -12,7 +12,7 @@ const CountdownTimer = ({ serverTime, startTime, timeLimitMinutes, pauseDuration
 
   useEffect(() => {
     if (isNotStarted) {
-      setTimeLeft((timeLimitMinutes || 45) * 60);
+      setTimeLeft((timeLimitMinutes || 40) * 60);
       return;
     }
 
@@ -26,14 +26,23 @@ const CountdownTimer = ({ serverTime, startTime, timeLimitMinutes, pauseDuration
     const localNow = new Date().getTime();
     const clientOffset = serverRef - localNow;
 
-    const limitMs = (timeLimitMinutes || 45) * 60 * 1000;
+    const limitMs = (timeLimitMinutes || 40) * 60 * 1000;
     const pauseMs = (pauseDuration || 0) * 1000;
+    const targetExpiry = expiresAt ? new Date(expiresAt).getTime() : null;
 
     const updateTimer = () => {
       const now = new Date().getTime() + clientOffset;
       if (!isPaused) {
-        const elapsed = now - start - pauseMs;
-        const remaining = Math.max(0, limitMs - elapsed);
+        let remaining = 0;
+        if (targetExpiry) {
+          // Authoritative server-deadline countdown: strictly monotonic, immune to question switching
+          remaining = Math.max(0, targetExpiry - now);
+        } else {
+          // Fallback if expiresAt is not provided
+          const elapsed = now - start - pauseMs;
+          remaining = Math.max(0, limitMs - elapsed);
+        }
+
         const secs = Math.floor(remaining / 1000);
         setTimeLeft(secs);
 
@@ -48,7 +57,7 @@ const CountdownTimer = ({ serverTime, startTime, timeLimitMinutes, pauseDuration
     const timer = setInterval(updateTimer, 1000);
 
     return () => clearInterval(timer);
-  }, [serverTime, startTime, timeLimitMinutes, pauseDuration, eventStatus, isNotStarted, isPaused, isEnded, onExpire]);
+  }, [serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration, eventStatus, isNotStarted, isPaused, isEnded, onExpire]);
 
   const formatTime = (seconds) => {
     const sVal = Math.max(0, seconds || 0);
@@ -76,7 +85,7 @@ const CountdownTimer = ({ serverTime, startTime, timeLimitMinutes, pauseDuration
         <span>BATTLE TIME</span>
       </div>
       <div className="text-3xl sm:text-4xl font-mono font-black tracking-wider text-amber-200">
-        {isNotStarted && formatTime((timeLimitMinutes || 45) * 60)}
+        {isNotStarted && formatTime((timeLimitMinutes || 40) * 60)}
         {isPaused && <span className="text-amber-500 text-2xl font-fantasy tracking-wider">PAUSED</span>}
         {isEnded && <span className="text-red-500 text-2xl font-fantasy tracking-wider">TIME'S UP</span>}
         {isLive && (timeLeft === 0 ? <span className="text-red-500 text-2xl font-fantasy tracking-wider">TIME'S UP</span> : formatTime(timeLeft))}

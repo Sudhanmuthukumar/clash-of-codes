@@ -379,6 +379,7 @@ const ParticipantCodeScramble = () => {
               <CountdownTimer
                 serverTime={status.server_time}
                 startTime={status.start_time}
+                expiresAt={status.expires_at}
                 timeLimitMinutes={status.time_limit_minutes}
                 pauseDuration={status.pause_duration_seconds}
                 eventStatus={status.status}

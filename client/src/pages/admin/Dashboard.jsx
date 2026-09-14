@@ -37,9 +37,6 @@ const AdminDashboard = () => {
   const y2Teams = (stats.teamsByYear?.find(y => y.year === '2nd Year')?.c) || 0;
   const y3Teams = (stats.teamsByYear?.find(y => y.year === '3rd Year')?.c) || 0;
 
-  const csEvent = stats.events?.find(e => e.name.toLowerCase().includes('scramble') || e.year === '2nd Year') || {};
-  const htEvent = stats.events?.find(e => e.name.toLowerCase().includes('hidden') || e.year === '3rd Year') || {};
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8">
       {/* Header with Quick Actions */}
@@ -94,125 +91,89 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Event Overview Section */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Code Scramble Card */}
-        <div className="card-fortress border-t-4 border-t-amber-500 bg-stone-900/95 shadow-xl">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h2 className="text-xl font-bold font-fantasy text-amber-100 tracking-wide">
-                CODE SCRAMBLE &mdash; Builder's Challenge
-              </h2>
-              <span className="text-xs text-amber-400 font-sans font-bold">🔨 2nd Year CSE</span>
-            </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
-                csEvent.status === 'live'
-                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-600'
-                  : csEvent.status === 'paused'
-                  ? 'bg-yellow-950/60 text-yellow-400 border-yellow-600'
-                  : csEvent.status === 'ended'
-                  ? 'bg-red-950/60 text-red-400 border-red-600'
-                  : 'bg-stone-800 text-stone-400 border-stone-700'
-              }`}
-            >
-              {csEvent.status || 'not_started'}
-            </span>
-          </div>
+      {/* Event Overview Section - Dedicated cards for all events (Round 1, Round 2, 3rd Year) */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {(stats.events || []).map((ev) => {
+          const isY2 = ev.year === '2nd Year';
+          const isRound2 = ev.name.includes('Round 2');
+          const isHT = ev.year === '3rd Year';
 
-          <div className="space-y-3 font-mono text-sm border-t border-stone-800 pt-3">
-            <div className="flex justify-between text-stone-400 text-xs font-sans">
-              <span>Challenge Pool:</span>
-              <span className="text-stone-100 font-bold font-mono">{csEvent.questionCount || 0} challenges</span>
-            </div>
-            <div className="flex justify-between text-stone-400 text-xs font-sans">
-              <span>Assigned / Clan:</span>
-              <span className="text-amber-300 font-bold font-mono">{csEvent.questions_per_team || 0}</span>
-            </div>
-            <div className="flex justify-between text-stone-400 text-xs font-sans">
-              <span>Battle Duration:</span>
-              <span className="text-stone-100 font-bold font-mono">{csEvent.time_limit_minutes || 45} mins</span>
-            </div>
-            <div className="flex justify-between text-stone-400 text-xs font-sans">
-              <span>Total Marks:</span>
-              <span className="text-stone-100 font-bold font-mono">{csEvent.totalMarks || 0} marks</span>
-            </div>
-          </div>
+          const borderTopColor = isHT 
+            ? 'border-t-purple-500' 
+            : isRound2 
+            ? 'border-t-cyan-500' 
+            : 'border-t-amber-500';
 
-          <div className="mt-5 pt-3 border-t border-stone-800 flex gap-2">
-            <button
-              onClick={() => navigate('/admin/code-scramble')}
-              className="btn-secondary text-xs flex-grow"
-            >
-              Manage Challenges
-            </button>
-            <button
-              onClick={() => navigate('/admin/settings')}
-              className="btn-primary text-xs flex-grow"
-            >
-              Battle Controls
-            </button>
-          </div>
-        </div>
+          const manageRoute = isHT ? '/admin/hidden-tech' : '/admin/code-scramble';
 
-        {/* Hidden Tech -> Crack the Code Card */}
-        <div className="card-fortress border-t-4 border-t-amber-600 bg-stone-900/95 shadow-xl">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h2 className="text-xl font-bold font-fantasy text-amber-100 tracking-wide">
-                CRACK THE CODE &mdash; Code Invasion
-              </h2>
-              <span className="text-xs text-amber-400 font-sans font-bold">⚔ 3rd Year CSE</span>
-            </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
-                htEvent.status === 'live'
-                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-600'
-                  : htEvent.status === 'paused'
-                  ? 'bg-yellow-950/60 text-yellow-400 border-yellow-600'
-                  : htEvent.status === 'ended'
-                  ? 'bg-red-950/60 text-red-400 border-red-600'
-                  : 'bg-dark-800 text-gray-400 border-dark-600'
-              }`}
-            >
-              {htEvent.status || 'not_started'}
-            </span>
-          </div>
+          return (
+            <div key={ev.id} className={`card-fortress border-t-4 ${borderTopColor} bg-stone-900/95 shadow-xl flex flex-col justify-between`}>
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold font-fantasy text-amber-100 tracking-wide">
+                      {ev.name}
+                    </h2>
+                    <span className="text-xs text-amber-400 font-sans font-bold">
+                      {isHT ? '⚔ 3rd Year CSE' : (isRound2 ? '⚡ 2nd Year Round 2' : '🔨 2nd Year Round 1')}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider border ${
+                      ev.status === 'live'
+                        ? 'bg-emerald-950/60 text-emerald-400 border-emerald-600'
+                        : ev.status === 'paused'
+                        ? 'bg-yellow-950/60 text-yellow-400 border-yellow-600'
+                        : ev.status === 'ended'
+                        ? 'bg-red-950/60 text-red-400 border-red-600'
+                        : 'bg-stone-800 text-stone-400 border-stone-700'
+                    }`}
+                  >
+                    {ev.status || 'not_started'}
+                  </span>
+                </div>
 
-          <div className="space-y-3 font-mono text-sm border-t border-dark-800 pt-3">
-            <div className="flex justify-between text-gray-400 text-xs">
-              <span>Main Question Pool:</span>
-              <span className="text-white font-bold">{htEvent.questionCount || 0} questions</span>
-            </div>
-            <div className="flex justify-between text-gray-400 text-xs">
-              <span>Questions Assigned / Team:</span>
-              <span className="text-purple-300 font-bold">{htEvent.questions_per_team || 0}</span>
-            </div>
-            <div className="flex justify-between text-gray-400 text-xs">
-              <span>Time Limit:</span>
-              <span className="text-white font-bold">{htEvent.time_limit_minutes || 60} mins</span>
-            </div>
-            <div className="flex justify-between text-gray-400 text-xs">
-              <span>Total Available Marks:</span>
-              <span className="text-white font-bold">{htEvent.totalMarks || 0} marks</span>
-            </div>
-          </div>
+                <div className="space-y-2.5 font-mono text-xs border-t border-stone-800 pt-3">
+                  <div className="flex justify-between text-stone-400 font-sans">
+                    <span>Question Pool:</span>
+                    <span className="text-stone-100 font-bold font-mono">{ev.questionCount || 0} questions</span>
+                  </div>
+                  <div className="flex justify-between text-stone-400 font-sans">
+                    <span>Assigned / Clan:</span>
+                    <span className="text-amber-300 font-bold font-mono">{ev.questions_per_team || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-stone-400 font-sans">
+                    <span>Battle Duration:</span>
+                    <span className="text-stone-100 font-bold font-mono">{ev.time_limit_minutes} mins</span>
+                  </div>
+                  <div className="flex justify-between text-stone-400 font-sans">
+                    <span>Total Marks:</span>
+                    <span className="text-stone-100 font-bold font-mono">{ev.totalMarks || 0} marks</span>
+                  </div>
+                  <div className="flex justify-between text-stone-400 font-sans">
+                    <span>Clans Enlisted:</span>
+                    <span className="text-stone-100 font-bold font-mono">{ev.teamsCount || 0}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-5 pt-3 border-t border-dark-800 flex gap-2">
-            <button
-              onClick={() => navigate('/admin/hidden-tech')}
-              className="btn-secondary text-xs flex-grow"
-            >
-              Manage Questions
-            </button>
-            <button
-              onClick={() => navigate('/admin/settings')}
-              className="btn-primary text-xs flex-grow"
-            >
-              Event Controls
-            </button>
-          </div>
-        </div>
+              <div className="mt-5 pt-3 border-t border-stone-800 flex gap-2">
+                <button
+                  onClick={() => navigate(manageRoute)}
+                  className="btn-secondary text-xs flex-grow"
+                >
+                  Manage
+                </button>
+                <button
+                  onClick={() => navigate('/admin/settings')}
+                  className="btn-primary text-xs flex-grow"
+                >
+                  Controls
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Live Team Monitoring Table */}

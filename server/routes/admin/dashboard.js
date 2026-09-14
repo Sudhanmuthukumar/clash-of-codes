@@ -18,6 +18,7 @@ router.get('/stats', async (req, res) => {
         const teamsByYear = yearGroups.map(g => ({ year: g.year, c: g._count.id }));
 
         const eventsList = await prisma.event.findMany({
+            orderBy: { id: 'asc' },
             include: {
                 _count: {
                     select: {
@@ -85,8 +86,9 @@ router.get('/live', async (req, res) => {
             const questions_attempted = csCount + htCount;
 
             const session = t.testSessions && t.testSessions.length > 0 ? t.testSessions[0] : null;
+            const eventDuration = (t.event?.timeLimitMinutes || 40) * 60;
             let time_elapsed = 0;
-            let time_remaining = 40 * 60;
+            let time_remaining = eventDuration;
 
             if (session) {
                 const now = Date.now();
@@ -98,7 +100,7 @@ router.get('/live', async (req, res) => {
                 }
             } else if (t.eventStartedAt) {
                 time_elapsed = Math.round((Date.now() - new Date(t.eventStartedAt).getTime()) / 1000);
-                time_remaining = Math.max(0, (40 * 60) - time_elapsed);
+                time_remaining = Math.max(0, eventDuration - time_elapsed);
             }
 
             return {
@@ -109,7 +111,7 @@ router.get('/live', async (req, res) => {
                 status: session && session.status === 'TERMINATED' ? 'terminated' : t.status,
                 event_started_at: session ? session.startedAt.toISOString() : (t.eventStartedAt ? t.eventStartedAt.toISOString() : null),
                 total_allocated: t.event ? t.event.questionsPerTeam : 5,
-                time_limit_minutes: 40,
+                time_limit_minutes: t.event?.timeLimitMinutes || 40,
                 questions_attempted,
                 time_elapsed,
                 time_remaining,

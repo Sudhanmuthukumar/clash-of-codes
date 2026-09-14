@@ -12,22 +12,29 @@ const Results = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const toast = useToast();
 
-  const fetchResults = async () => {
-    setLoading(true);
+  const fetchResults = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const res = await api.get(`/admin/results?event_id=${activeEventId}`);
       setResults(res.data);
     } catch (err) {
-      toast.error('Failed to load leaderboard results');
+      if (!isBackground) toast.error('Failed to load leaderboard results');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchResults();
+    fetchResults(false);
     setExpandedTeamId(null);
     setTeamDetail(null);
+
+    // 8-second background polling without clearing existing UI or state
+    const interval = setInterval(() => {
+      fetchResults(true);
+    }, 8000);
+
+    return () => clearInterval(interval);
   }, [activeEventId]);
 
   const handleExportCSV = async () => {

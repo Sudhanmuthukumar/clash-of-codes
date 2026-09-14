@@ -147,8 +147,8 @@ router.post('/test-session/start', async (req, res) => {
             });
         }
 
-        // Fresh start: EXACTLY 40 MINUTES from server time
-        const durationMinutes = 40;
+        // Fresh start: duration strictly derived from authoritative event.timeLimitMinutes
+        const durationMinutes = event.timeLimitMinutes || 40;
         const expiresAt = new Date(now.getTime() + durationMinutes * 60 * 1000);
 
         session = await prisma.testSession.create({
@@ -327,7 +327,7 @@ router.get('/status', async (req, res) => {
         } else if (event.status === 'live' && team.eventStartedAt) {
             // Fallback before testSession record
             const elapsed = Math.floor((server_time - new Date(team.eventStartedAt)) / 1000);
-            const totalAllowed = (40 * 60) + pauseDuration;
+            const totalAllowed = ((event.timeLimitMinutes || 40) * 60) + pauseDuration;
             remaining_seconds = Math.max(0, totalAllowed - elapsed);
 
             if (remaining_seconds === 0 && team.status === 'active') {
@@ -341,7 +341,7 @@ router.get('/status', async (req, res) => {
                 }
             }
         } else {
-            remaining_seconds = 40 * 60;
+            remaining_seconds = (event.timeLimitMinutes || 40) * 60;
         }
 
         res.json({
@@ -350,7 +350,7 @@ router.get('/status', async (req, res) => {
             server_time: server_time.toISOString(),
             start_time: testSession ? testSession.startedAt.toISOString() : (team.eventStartedAt ? team.eventStartedAt.toISOString() : null),
             expires_at: testSession ? testSession.expiresAt.toISOString() : null,
-            time_limit_minutes: 40,
+            time_limit_minutes: event.timeLimitMinutes || 40,
             remaining_seconds,
             pause_duration_seconds: pauseDuration,
             is_expired: is_expired || team.status === 'time_expired' || (event.status === 'live' && remaining_seconds === 0),
