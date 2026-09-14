@@ -293,7 +293,19 @@ const Results = () => {
                                             ))}
                                           </div>
                                           <div className="flex justify-between pt-1 border-t border-dark-800">
-                                            <span>Final Output: {qd.final_output_correct ? '✓ Correct' : (qd.final_output_given ? '✗ Wrong' : 'Not submitted')}</span>
+                                            <span>
+                                              Final Output:{' '}
+                                              <span className={
+                                                (qd.final_output_status || '').includes('Correct')
+                                                  ? 'text-green-400 font-bold'
+                                                  : (qd.final_output_status || '').includes('Wrong')
+                                                    ? 'text-red-400 font-bold'
+                                                    : 'text-gray-400'
+                                              }>
+                                                {qd.final_output_status
+                                                  || (qd.final_output_correct ? '✓ Correct' : (qd.final_output_given ? '✗ Wrong' : 'Not submitted'))}
+                                              </span>
+                                            </span>
                                             <span className="text-yellow-400 font-bold">Word: {qd.final_output_expected}</span>
                                           </div>
                                         </div>

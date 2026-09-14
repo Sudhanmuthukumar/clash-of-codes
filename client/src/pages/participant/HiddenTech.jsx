@@ -130,10 +130,17 @@ const ParticipantHiddenTech = () => {
     }
     setSubmittingFinal(true);
     try {
-      await api.post(`/participant/hidden-tech/questions/${activeId}/final-output`, {
+      const res = await api.post(`/participant/hidden-tech/questions/${activeId}/final-output`, {
         final_output: val,
       });
-      toast.success('Final output submitted.');
+      const evaluation = res.data?.evaluation;
+      if (evaluation === 'CORRECT') {
+        toast.success('✓ Final Output: CORRECT! Gate breached successfully.');
+      } else if (evaluation === 'WRONG') {
+        toast.error('✗ Final Output: WRONG. The gate did not open. You may try again.');
+      } else {
+        toast.success('Final output submitted.');
+      }
       await loadQuestion(activeId);
       await fetchQuestions(activeId);
     } catch (err) {
@@ -384,10 +391,17 @@ const ParticipantHiddenTech = () => {
                 </div>
 
                 {hasFinalOutput && (
-                  <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-600 px-3 py-1 rounded-full flex items-center gap-1.5">
-                    <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Final Output Breached</span>
-                  </span>
+                  currentQ?.final_output_evaluation === 'CORRECT' ? (
+                    <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-600 px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Final Gate: CORRECT ✓</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs font-mono font-bold text-red-300 bg-red-950/70 border border-red-600 px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <IconLock className="w-3.5 h-3.5 text-red-400" />
+                      <span>Final Gate: WRONG ✗ — Retry</span>
+                    </span>
+                  )
                 )}
               </div>
 

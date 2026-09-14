@@ -33,7 +33,9 @@ async function calculateTeamResults(teamId, eventId) {
             htFinalAttempts: true,
             hints: true,
             testSessions: {
-                where: eventId ? { eventId } : undefined,
+                // Load ALL sessions for this team; we pick the matching one below.
+                // Previously filtering by eventId caused finalized sessions to be missed
+                // when the team's TestSession.eventId differed from the query eventId.
                 include: { event: true },
                 orderBy: { createdAt: 'desc' }
             }
@@ -165,6 +167,10 @@ async function calculateTeamResults(teamId, eventId) {
                 final_output_given: finalAttempt ? finalAttempt.finalOutput : null,
                 final_output_correct: finalCorrect,
                 final_output_marks: finalMarks,
+                // Explicit 3-way status for admin display
+                final_output_status: finalAttempt
+                    ? (finalCorrect ? 'Submitted — Correct' : 'Submitted — Wrong')
+                    : 'Not Submitted',
                 hint_penalty: subHintPenalty,
                 hints_used: subHints
             });
@@ -180,7 +186,13 @@ async function calculateTeamResults(teamId, eventId) {
     }
 
     let timeTaken = null;
-    const session = team.testSessions && team.testSessions.length > 0 ? team.testSessions[0] : null;
+    // Pick the session for the specific eventId being queried, then fall back to most recent.
+    // team.testSessions is ordered by createdAt desc (most recent first).
+    const session = team.testSessions && team.testSessions.length > 0
+        ? (eventId
+            ? (team.testSessions.find(s => s.eventId === eventId) || team.testSessions[0])
+            : team.testSessions[0])
+        : null;
     const sessionLimit = session?.event?.timeLimitMinutes;
     const maxAllowedSeconds = (sessionLimit || team.event?.timeLimitMinutes || 40) * 60;
 
@@ -263,7 +275,7 @@ async function getEventResults(eventId) {
     const results = [];
     for (const t of teams) {
         const res = await calculateTeamResults(t.id, eventId);
-        if (res && (res.questions_allocated > 0 || !eventId)) results.push(res);
+        if (res) results.push(res);
     }
 
     // Sort: marks DESC, time ASC (only for finalized results with valid time_taken)

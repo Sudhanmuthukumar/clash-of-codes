@@ -128,7 +128,9 @@ router.get('/questions/:id', async (req, res) => {
             title: q.title,
             sub_questions: subs,
             all_attempted: allAttempted,
-            has_final_output: !!finalAtt
+            has_final_output: !!finalAtt,
+            // Expose evaluation verdict ONLY — never the correct answer
+            final_output_evaluation: finalAtt ? (finalAtt.isCorrect === 1 ? 'CORRECT' : 'WRONG') : null
         });
     } catch (err) {
         console.error('Hidden tech /questions/:id error:', err);
@@ -229,8 +231,13 @@ router.post('/questions/:id/final-output', submissionLimiter, async (req, res) =
             }
         });
 
-        // Security: Return ONLY submitted: true — never reveal correct/wrong
-        res.json({ submitted: true });
+        // Security: Return submitted=true and the VERDICT only.
+        // NEVER return ht.finalOutput (the correct answer) in this response.
+        res.json({
+            submitted: true,
+            evaluation: isCorrect === 1 ? 'CORRECT' : 'WRONG',
+            marks_awarded: marks
+        });
     } catch (err) {
         console.error('Hidden tech final-output submit error:', err);
         res.status(500).json({ error: 'Server error' });
