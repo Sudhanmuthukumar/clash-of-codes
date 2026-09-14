@@ -11,16 +11,26 @@ router.get('/questions', async (req, res) => {
     try {
         const teamId = req.user.teamId;
         const eventId = req.user.eventId;
-        const allocations = await prisma.teamQuestionAllocation.findMany({
+        let allocations = await prisma.teamQuestionAllocation.findMany({
             where: { 
                 teamId,
                 question: eventId ? { eventId } : undefined
             },
-            select: { questionId: true }
+            orderBy: { displayOrder: 'asc' },
+            select: { questionId: true, displayOrder: true }
         });
         let qIds = allocations.map(a => a.questionId);
         if (!qIds.length && eventId) {
             qIds = await allocateQuestions(teamId, eventId);
+            allocations = await prisma.teamQuestionAllocation.findMany({
+                where: { 
+                    teamId,
+                    question: eventId ? { eventId } : undefined
+                },
+                orderBy: { displayOrder: 'asc' },
+                select: { questionId: true, displayOrder: true }
+            });
+            qIds = allocations.map(a => a.questionId);
         }
         if (!qIds.length) return res.json([]);
 
@@ -33,15 +43,15 @@ router.get('/questions', async (req, res) => {
                 hiddenTechQuestion: {
                     include: {
                         subQuestions: {
-                            select: { id: true }
+                            select: { id: true, displayOrder: true },
+                            orderBy: { displayOrder: 'asc' } // STRICT FIXED SUBQUESTION ORDER
                         }
                     }
                 }
-            },
-            orderBy: {
-                displayOrder: 'asc'
             }
         });
+
+        const qMap = new Map(questions.map(q => [q.id, q]));
 
         const subAttempts = await prisma.hiddenTechSubAttempt.findMany({
             where: { teamId },
@@ -49,19 +59,25 @@ router.get('/questions', async (req, res) => {
         });
         const attemptedSubIds = new Set(subAttempts.map(a => a.subQuestionId));
 
-        const result = questions.map(q => {
-            const subs = q.hiddenTechQuestion ? q.hiddenTechQuestion.subQuestions : [];
-            const subCount = subs.length;
-            const attCount = subs.filter(s => attemptedSubIds.has(s.id)).length;
-            return {
-                id: q.id,
-                question_number: q.questionNumber,
-                title: q.title,
-                display_order: q.displayOrder,
-                sub_question_count: subCount,
-                attempted_count: attCount
-            };
-        });
+        // Order strictly according to the team's persisted allocation displayOrder
+        const result = allocations
+            .map((alloc, idx) => {
+                const q = qMap.get(alloc.questionId);
+                if (!q) return null;
+                const subs = q.hiddenTechQuestion ? q.hiddenTechQuestion.subQuestions : [];
+                const subCount = subs.length;
+                const attCount = subs.filter(s => attemptedSubIds.has(s.id)).length;
+                return {
+                    id: q.id,
+                    question_number: idx + 1,
+                    original_question_number: q.questionNumber,
+                    title: q.title,
+                    display_order: alloc.displayOrder || idx + 1,
+                    sub_question_count: subCount,
+                    attempted_count: attCount
+                };
+            })
+            .filter(Boolean);
 
         res.json(result);
     } catch (err) {
@@ -121,10 +137,16 @@ router.get('/questions/:id', async (req, res) => {
             where: { teamId_questionId: { teamId, questionId: qId } }
         });
 
+        const alloc = await prisma.teamQuestionAllocation.findUnique({
+            where: { teamId_questionId: { teamId, questionId: qId } },
+            select: { displayOrder: true }
+        });
+
         // Security: NEVER expose correct answers, revealed characters, or final password!
         res.json({
             id: q.id,
-            question_number: q.questionNumber,
+            question_number: alloc?.displayOrder || q.questionNumber,
+            original_question_number: q.questionNumber,
             title: q.title,
             sub_questions: subs,
             all_attempted: allAttempted,

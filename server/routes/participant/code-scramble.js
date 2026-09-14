@@ -17,16 +17,27 @@ router.get('/questions', async (req, res) => {
     try {
         const teamId = req.user.teamId;
         const eventId = req.user.eventId;
-        const allocations = await prisma.teamQuestionAllocation.findMany({
+        let allocations = await prisma.teamQuestionAllocation.findMany({
             where: { 
                 teamId,
                 question: eventId ? { eventId } : undefined
             },
-            select: { questionId: true }
+            orderBy: { displayOrder: 'asc' },
+            select: { questionId: true, displayOrder: true }
         });
+        
         let qIds = allocations.map(a => a.questionId);
-        if (!qIds.length && eventId) {
+        if ((!qIds.length || qIds.length < 10) && eventId) {
             qIds = await allocateQuestions(teamId, eventId);
+            allocations = await prisma.teamQuestionAllocation.findMany({
+                where: { 
+                    teamId,
+                    question: eventId ? { eventId } : undefined
+                },
+                orderBy: { displayOrder: 'asc' },
+                select: { questionId: true, displayOrder: true }
+            });
+            qIds = allocations.map(a => a.questionId);
         }
         if (!qIds.length) return res.json([]);
 
@@ -41,11 +52,10 @@ router.get('/questions', async (req, res) => {
                 questionNumber: true,
                 title: true,
                 displayOrder: true
-            },
-            orderBy: {
-                displayOrder: 'asc'
             }
         });
+
+        const qMap = new Map(questions.map(q => [q.id, q]));
 
         const attempts = await prisma.codeScrambleAttempt.findMany({
             where: {
@@ -56,17 +66,23 @@ router.get('/questions', async (req, res) => {
 
         const attemptMap = new Map(attempts.map(a => [a.questionId, a]));
 
-        const result = questions.map(q => {
-            const attempt = attemptMap.get(q.id);
-            return {
-                id: q.id,
-                question_number: q.questionNumber,
-                title: q.title,
-                display_order: q.displayOrder,
-                is_saved: !!attempt,
-                is_attempted: attempt ? attempt.isSubmitted === 1 : false
-            };
-        });
+        // Order strictly according to the team's persisted allocation displayOrder
+        const result = allocations
+            .map((alloc, idx) => {
+                const q = qMap.get(alloc.questionId);
+                if (!q) return null;
+                const attempt = attemptMap.get(q.id);
+                return {
+                    id: q.id,
+                    question_number: idx + 1,
+                    original_question_number: q.questionNumber,
+                    title: q.title,
+                    display_order: alloc.displayOrder || idx + 1,
+                    is_saved: !!attempt,
+                    is_attempted: attempt ? attempt.isSubmitted === 1 : false
+                };
+            })
+            .filter(Boolean);
 
         res.json(result);
     } catch (err) {

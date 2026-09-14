@@ -149,12 +149,13 @@ model HiddenTechSubQuestion {
 }
 
 model TeamQuestionAllocation {
-  id         Int      @id @default(autoincrement())
-  teamId     Int      @map("team_id")
-  questionId Int      @map("question_id")
-  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz
-  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id           Int      @id @default(autoincrement())
+  teamId       Int      @map("team_id")
+  questionId   Int      @map("question_id")
+  displayOrder Int      @default(1) @map("display_order")
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz
+  team         Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, questionId])
   @@map("team_question_allocations")

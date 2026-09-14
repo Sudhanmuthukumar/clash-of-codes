@@ -41,6 +41,15 @@ router.get('/', async (req, res) => {
             allocatedCount = allocatedIds.length;
 
             if (allocatedIds.length > 0) {
+                const teamAllocs = await prisma.teamQuestionAllocation.findMany({
+                    where: { 
+                        teamId: team.id,
+                        question: { eventId: event.id }
+                    },
+                    orderBy: { displayOrder: 'asc' },
+                    select: { questionId: true, displayOrder: true }
+                });
+
                 const rawQs = await prisma.question.findMany({
                     where: { id: { in: allocatedIds } },
                     select: {
@@ -48,9 +57,10 @@ router.get('/', async (req, res) => {
                         questionNumber: true,
                         title: true,
                         displayOrder: true
-                    },
-                    orderBy: { displayOrder: 'asc' }
+                    }
                 });
+
+                const qMap = new Map(rawQs.map(q => [q.id, q]));
 
                 let csAttempts = [];
                 let htFinalAttempts = [];
@@ -69,15 +79,19 @@ router.get('/', async (req, res) => {
                 const csMap = new Map(csAttempts.map(a => [a.questionId, a.isSubmitted === 1]));
                 const htMap = new Set(htFinalAttempts.map(a => a.questionId));
 
-                questionsList = rawQs.map(q => {
+                questionsList = teamAllocs.map((alloc, idx) => {
+                    const q = qMap.get(alloc.questionId);
+                    if (!q) return null;
                     const isAttempted = team.year === '2nd Year' ? !!csMap.get(q.id) : htMap.has(q.id);
                     return {
                         id: q.id,
-                        question_number: q.questionNumber,
+                        question_number: idx + 1,
+                        original_question_number: q.questionNumber,
                         title: q.title,
+                        display_order: alloc.displayOrder || idx + 1,
                         attempted: isAttempted
                     };
-                });
+                }).filter(Boolean);
             }
             attemptedCount = questionsList.filter(q => q.attempted).length;
         }
