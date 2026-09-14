@@ -29,17 +29,40 @@ function authenticateToken(req, res, next) {
         return res.status(401).json({ error: 'Authentication required. No valid session found.' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || 'tech-arena-dev-secret-2026', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'tech-arena-dev-secret-2026', async (err, user) => {
         if (err) {
             return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
         }
+        
+        let eventId = user.eventId;
+        const requestedEventId = parseInt(req.headers['x-event-id'] || req.query.event_id || req.body?.eventId);
+        
+        // If participant requested a specific round/eventId, validate that it belongs to their year
+        if (user.role === 'participant' && requestedEventId && !isNaN(requestedEventId)) {
+            try {
+                const targetEvent = await prisma.event.findUnique({
+                    where: { id: requestedEventId },
+                    select: { id: true, year: true }
+                });
+                const team = await prisma.team.findUnique({
+                    where: { id: user.teamId },
+                    select: { year: true }
+                });
+                if (targetEvent && team && targetEvent.year === team.year) {
+                    eventId = targetEvent.id;
+                }
+            } catch (e) {
+                console.error('Error resolving active event:', e);
+            }
+        }
+
         // Server authoritative user context (prevent client spoofing)
         req.user = {
             id: user.id,
             role: user.role,
             userId: user.userId,
             teamId: user.teamId,
-            eventId: user.eventId
+            eventId: eventId
         };
         next();
     });
@@ -74,8 +97,21 @@ async function requireEventActive(req, res, next) {
         });
 
         if (!team) return res.status(404).json({ error: 'Team not found' });
+        if (team.status === 'disabled') {
+            return res.status(403).json({ error: 'Team is disabled' });
+        }
 
-        // 1. Check Anti-Cheat TestSession Status if exists
+        // Target event for this round
+        const event = await prisma.event.findUnique({
+            where: { id: req.user.eventId }
+        }) || team.event;
+
+        if (!event) return res.status(404).json({ error: 'Event not found' });
+        if (event.status !== 'live') {
+            return res.status(403).json({ error: 'Event is not currently live' });
+        }
+
+        // 1. Check Anti-Cheat TestSession Status for THIS round
         const testSession = team.testSessions && team.testSessions.length > 0 ? team.testSessions[0] : null;
         const now = new Date();
 
@@ -95,12 +131,6 @@ async function requireEventActive(req, res, next) {
                         data: { status: 'EXPIRED' }
                     });
                 }
-                if (team.status === 'active') {
-                    await prisma.team.update({
-                        where: { id: team.id },
-                        data: { status: 'time_expired', eventSubmittedAt: now }
-                    });
-                }
                 return res.status(403).json({
                     error: 'Time expired',
                     time_expired: true,
@@ -111,26 +141,9 @@ async function requireEventActive(req, res, next) {
                 return res.status(403).json({
                     error: 'Event already submitted',
                     is_completed: true,
-                    message: 'Your clan has already finalized and submitted the test.'
+                    message: 'Your clan has already finalized and submitted this battle.'
                 });
             }
-        }
-        
-        if (team.status === 'time_expired') {
-            return res.status(403).json({ error: 'Time expired', time_expired: true, message: "TIME'S UP! The event time has expired." });
-        }
-        if (team.status === 'completed') {
-            return res.status(403).json({ error: 'Event already submitted', is_completed: true });
-        }
-        if (team.status !== 'active') {
-            return res.status(403).json({ error: 'Team is not active' });
-        }
-
-        const event = team.event;
-        if (!event) return res.status(404).json({ error: 'Event not found' });
-
-        if (event.status !== 'live') {
-            return res.status(403).json({ error: 'Event is not currently live' });
         }
 
         // Server-Authoritative Fallback Timer Check (if testSession not yet created)
@@ -141,17 +154,10 @@ async function requireEventActive(req, res, next) {
                 pauseDuration += Math.floor((now - new Date(event.pauseStartTime)) / 1000);
             }
             const elapsed = Math.floor((now - startTime) / 1000);
-            const totalAllowed = (40 * 60) + pauseDuration; // 40-minute test limit
+            const totalAllowed = ((event.timeLimitMinutes || 40) * 60) + pauseDuration;
             const remainingSeconds = totalAllowed - elapsed;
 
             if (remainingSeconds <= 0) {
-                await prisma.team.update({
-                    where: { id: team.id },
-                    data: {
-                        status: 'time_expired',
-                        eventSubmittedAt: now
-                    }
-                });
                 return res.status(403).json({
                     error: 'Time expired',
                     time_expired: true,

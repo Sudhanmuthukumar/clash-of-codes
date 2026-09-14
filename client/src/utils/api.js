@@ -17,6 +17,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    const activeEventId = sessionStorage.getItem('tech_arena_active_event_id') || localStorage.getItem('tech_arena_active_event_id');
+    if (activeEventId && !config.headers['x-event-id']) {
+      config.headers['x-event-id'] = activeEventId;
+    }
     return config;
   },
   (error) => Promise.reject(error)

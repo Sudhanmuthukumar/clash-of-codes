@@ -13,7 +13,10 @@ router.get('/', async (req, res) => {
             include: { event: true }
         });
         if (!team) return res.status(404).json({ error: 'Team not found' });
-        const event = team.event;
+        const eventId = req.user.eventId;
+        const event = await prisma.event.findUnique({
+            where: { id: eventId }
+        }) || team.event;
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
         let allocatedCount = 0;
@@ -106,9 +109,7 @@ router.get('/', async (req, res) => {
         let questionsSolved = 0;
 
         const maxAllowedSeconds = (event.timeLimitMinutes || 40) * 60;
-        const isFinalized = (testSession && ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(testSession.status)) ||
-                            team.status === 'completed' ||
-                            team.status === 'time_expired';
+        const isFinalized = testSession && ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(testSession.status);
 
         if (isFinalized) {
             if (testSession) {
@@ -122,35 +123,46 @@ router.get('/', async (req, res) => {
                     const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : new Date(testSession.expiresAt).getTime();
                     timeUsedSeconds = Math.round((endMs - startMs) / 1000);
                 }
-            } else if (team.eventStartedAt) {
-                const startMs = new Date(team.eventStartedAt).getTime();
-                const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : startMs + (maxAllowedSeconds * 1000);
-                timeUsedSeconds = Math.round((endMs - startMs) / 1000);
             }
 
             if (timeUsedSeconds !== null) {
                 timeUsedSeconds = Math.max(0, Math.min(timeUsedSeconds, maxAllowedSeconds));
             }
 
-            // Calculate final marks and questions solved for completed team
+            // Calculate final marks and questions solved for completed team in THIS round
             if (team.year === '2nd Year') {
                 const attempts = await prisma.codeScrambleAttempt.findMany({
-                    where: { teamId: team.id, isSubmitted: 1 },
+                    where: { 
+                        teamId: team.id, 
+                        isSubmitted: 1,
+                        question: { eventId: event.id }
+                    },
                     select: { marksAwarded: true, isCorrect: true }
                 });
                 finalScore = attempts.reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
                 questionsSolved = attempts.filter(a => a.isCorrect === 1).length;
             } else {
                 const subAttempts = await prisma.hiddenTechSubAttempt.findMany({
-                    where: { teamId: team.id, isCorrect: 1 },
+                    where: { 
+                        teamId: team.id, 
+                        isCorrect: 1,
+                        subQuestion: { mainQuestion: { question: { eventId: event.id } } }
+                    },
                     select: { marksAwarded: true }
                 });
                 const finalAttempts = await prisma.hiddenTechFinalAttempt.findMany({
-                    where: { teamId: team.id, isCorrect: 1 },
+                    where: { 
+                        teamId: team.id, 
+                        isCorrect: 1,
+                        question: { eventId: event.id }
+                    },
                     select: { marksAwarded: true }
                 });
                 const hints = await prisma.hintUsage.findMany({
-                    where: { teamId: team.id },
+                    where: { 
+                        teamId: team.id,
+                        question: { eventId: event.id }
+                    },
                     select: { penalty: true }
                 });
                 const subMarks = subAttempts.reduce((s, a) => s + (a.marksAwarded || 0), 0);
@@ -187,8 +199,9 @@ router.get('/', async (req, res) => {
                 p2_name: m2Name,
                 p2_batch: m2Sec,
                 email: team.email,
-                status: team.status
+                status: testSession ? (testSession.status === 'SUBMITTED' ? 'completed' : (testSession.status === 'EXPIRED' ? 'time_expired' : team.status)) : team.status
             },
+            event_id: event.id,
             event_name: event.name,
             event_status: event.status,
             allocated_count: allocatedCount,

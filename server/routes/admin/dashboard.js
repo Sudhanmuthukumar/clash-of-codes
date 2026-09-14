@@ -60,9 +60,23 @@ router.get('/stats', async (req, res) => {
 
 router.get('/live', async (req, res) => {
     try {
+        const queryEventId = req.query.event_id ? parseInt(req.query.event_id) : undefined;
+        
+        let targetEvent = null;
+        if (queryEventId) {
+            targetEvent = await prisma.event.findUnique({ where: { id: queryEventId } });
+        }
+
         const teams = await prisma.team.findMany({
             where: {
-                status: { in: ['active', 'completed', 'time_expired'] }
+                status: { in: ['active', 'completed', 'time_expired'] },
+                ...(targetEvent ? {
+                    OR: [
+                        { year: targetEvent.year },
+                        { eventId: queryEventId },
+                        { allocations: { some: { question: { eventId: queryEventId } } } }
+                    ]
+                } : {})
             },
             include: {
                 event: true,
@@ -80,8 +94,9 @@ router.get('/live', async (req, res) => {
                     select: { penalty: true }
                 },
                 testSessions: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 1
+                    where: queryEventId ? { eventId: queryEventId } : undefined,
+                    include: { event: true },
+                    orderBy: { createdAt: 'desc' }
                 }
             }
         });
@@ -102,36 +117,80 @@ router.get('/live', async (req, res) => {
                 current_score = Math.max(0, subMarks + finalMarks - hintPenalty);
             }
 
-            const session = t.testSessions && t.testSessions.length > 0 ? t.testSessions[0] : null;
-            const eventDuration = (t.event?.timeLimitMinutes || 40) * 60;
-            let time_elapsed = 0;
+            // Strictly pick the session matching queryEventId if queried, else first/most recent
+            const session = t.testSessions && t.testSessions.length > 0
+                ? (queryEventId ? (t.testSessions.find(s => s.eventId === queryEventId) || null) : t.testSessions[0])
+                : null;
+            const activeEvent = session?.event || targetEvent || t.event;
+            const eventDuration = (activeEvent?.timeLimitMinutes || 40) * 60;
+            
+            let time_used = 0;
             let time_remaining = eventDuration;
+            const startMs = session ? new Date(session.startedAt).getTime() : (t.eventStartedAt ? new Date(t.eventStartedAt).getTime() : null);
 
-            if (session) {
-                const now = Date.now();
-                time_elapsed = Math.round((now - new Date(session.startedAt).getTime()) / 1000);
-                if (session.status === 'ACTIVE') {
-                    time_remaining = Math.max(0, Math.round((new Date(session.expiresAt).getTime() - now) / 1000));
-                } else {
+            if (session && startMs) {
+                const isFinalized = ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(session.status) ||
+                                    t.status === 'completed' ||
+                                    t.status === 'time_expired';
+
+                if (isFinalized) {
+                    if (session.status === 'EXPIRED') {
+                        // For expiry: expiresAt - startedAt
+                        time_used = Math.round((new Date(session.expiresAt).getTime() - startMs) / 1000);
+                    } else if (session.status === 'SUBMITTED' || session.status === 'TERMINATED') {
+                        // For overall submit: finalSubmittedAt - startedAt
+                        const endMs = t.eventSubmittedAt 
+                            ? new Date(t.eventSubmittedAt).getTime() 
+                            : new Date(session.updatedAt || session.expiresAt).getTime();
+                        time_used = Math.round((endMs - startMs) / 1000);
+                    } else {
+                        const endMs = t.eventSubmittedAt ? new Date(t.eventSubmittedAt).getTime() : new Date(session.expiresAt).getTime();
+                        time_used = Math.round((endMs - startMs) / 1000);
+                    }
                     time_remaining = 0;
+                } else {
+                    // Active session: ticks with server clock
+                    const now = Date.now();
+                    time_used = Math.round((now - startMs) / 1000);
+                    time_remaining = Math.max(0, Math.round((new Date(session.expiresAt).getTime() - now) / 1000));
                 }
-            } else if (t.eventStartedAt) {
-                time_elapsed = Math.round((Date.now() - new Date(t.eventStartedAt).getTime()) / 1000);
-                time_remaining = Math.max(0, eventDuration - time_elapsed);
+            } else if (t.eventStartedAt && startMs) {
+                const isFinalized = t.status === 'completed' || t.status === 'time_expired';
+                if (isFinalized) {
+                    const endMs = t.eventSubmittedAt ? new Date(t.eventSubmittedAt).getTime() : startMs + (eventDuration * 1000);
+                    time_used = Math.round((endMs - startMs) / 1000);
+                    time_remaining = 0;
+                } else {
+                    const now = Date.now();
+                    time_used = Math.round((now - startMs) / 1000);
+                    time_remaining = Math.max(0, eventDuration - time_used);
+                }
+            }
+
+            // Bound time_used to 0 <= time_used <= eventDuration
+            if (time_used !== null && time_used !== undefined && !isNaN(time_used)) {
+                time_used = Math.max(0, Math.min(time_used, eventDuration));
+            } else {
+                time_used = 0;
             }
 
             return {
                 id: t.id,
                 team_name: t.teamName,
                 year: t.year,
-                event_name: t.event ? t.event.name : null,
-                status: session && session.status === 'TERMINATED' ? 'terminated' : t.status,
+                event_name: activeEvent ? activeEvent.name : null,
+                event_id: activeEvent ? activeEvent.id : null,
+                status: session && session.status === 'TERMINATED' ? 'terminated' : (session && session.status === 'SUBMITTED' ? 'completed' : (session && session.status === 'EXPIRED' ? 'time_expired' : t.status)),
                 event_started_at: session ? session.startedAt.toISOString() : (t.eventStartedAt ? t.eventStartedAt.toISOString() : null),
-                total_allocated: t.event ? t.event.questionsPerTeam : 5,
-                time_limit_minutes: t.event?.timeLimitMinutes || 40,
+                event_submitted_at: t.eventSubmittedAt ? t.eventSubmittedAt.toISOString() : null,
+                total_allocated: activeEvent ? activeEvent.questionsPerTeam : 5,
+                time_limit_minutes: activeEvent?.timeLimitMinutes || 40,
                 questions_attempted,
                 current_score,
-                time_elapsed,
+                time_used,
+                timeUsed: time_used,
+                time_consumed: time_used,
+                time_elapsed: time_used,
                 time_remaining,
                 violation_count: session ? session.violationCount : 0,
                 termination_reason: session ? session.terminationReason : null,

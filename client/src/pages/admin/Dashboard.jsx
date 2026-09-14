@@ -8,14 +8,16 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [live, setLive] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
 
   const fetchDashboard = async () => {
     try {
+      const liveEndpoint = selectedEventId ? `/admin/dashboard/live?event_id=${selectedEventId}` : '/admin/dashboard/live';
       const [statsRes, liveRes] = await Promise.all([
         api.get('/admin/dashboard/stats'),
-        api.get('/admin/dashboard/live'),
+        api.get(liveEndpoint),
       ]);
       setStats(statsRes.data);
       setLive(liveRes.data);
@@ -30,7 +32,15 @@ const AdminDashboard = () => {
     fetchDashboard();
     const interval = setInterval(fetchDashboard, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedEventId]);
+
+  const formatTime = (sec) => {
+    if (sec === null || sec === undefined || isNaN(sec)) return '—';
+    const s = Math.max(0, Math.round(sec));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}m ${rem.toString().padStart(2, '0')}s`;
+  };
 
   if (loading || !stats) return <div className="p-8 text-center text-gray-400">Loading admin dashboard...</div>;
 
@@ -91,15 +101,15 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Event Overview Section - Dedicated cards for all events (Round 1, Round 2, 3rd Year) */}
-      <div className="grid md:grid-cols-3 gap-6">
+      {/* Event Overview Section - Dedicated cards for all 4 events */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {(stats.events || []).map((ev) => {
           const isY2 = ev.year === '2nd Year';
           const isRound2 = ev.name.includes('Round 2');
           const isHT = ev.year === '3rd Year';
 
           const borderTopColor = isHT 
-            ? 'border-t-purple-500' 
+            ? (isRound2 ? 'border-t-emerald-500' : 'border-t-purple-500')
             : isRound2 
             ? 'border-t-cyan-500' 
             : 'border-t-amber-500';
@@ -111,11 +121,11 @@ const AdminDashboard = () => {
               <div>
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-lg font-bold font-fantasy text-amber-100 tracking-wide">
+                    <h2 className="text-base font-bold font-fantasy text-amber-100 tracking-wide">
                       {ev.name}
                     </h2>
                     <span className="text-xs text-amber-400 font-sans font-bold">
-                      {isHT ? '⚔ 3rd Year CSE' : (isRound2 ? '⚡ 2nd Year Round 2' : '🔨 2nd Year Round 1')}
+                      {isHT ? (isRound2 ? '⚡ 3rd Year Round 2' : '🛡 3rd Year Round 1') : (isRound2 ? '⚡ 2nd Year Round 2' : '🔨 2nd Year Round 1')}
                     </span>
                   </div>
                   <span
@@ -189,6 +199,60 @@ const AdminDashboard = () => {
           </span>
         </div>
 
+        {/* Round Filter Tabs */}
+        <div className="flex flex-wrap border-b border-dark-800 text-xs font-mono mb-4 gap-2 pb-3">
+          <button
+            onClick={() => setSelectedEventId(null)}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              selectedEventId === null
+                ? 'bg-amber-500 text-dark-950 shadow'
+                : 'bg-dark-900 text-gray-400 hover:text-gray-200 border border-dark-800'
+            }`}
+          >
+            All Rounds
+          </button>
+          <button
+            onClick={() => setSelectedEventId(1)}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              selectedEventId === 1
+                ? 'bg-amber-500 text-dark-950 shadow'
+                : 'bg-dark-900 text-gray-400 hover:text-gray-200 border border-dark-800'
+            }`}
+          >
+            🔨 2nd Year R1
+          </button>
+          <button
+            onClick={() => setSelectedEventId(3)}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              selectedEventId === 3
+                ? 'bg-cyan-500 text-dark-950 shadow'
+                : 'bg-dark-900 text-gray-400 hover:text-gray-200 border border-dark-800'
+            }`}
+          >
+            ⚡ 2nd Year R2
+          </button>
+          <button
+            onClick={() => setSelectedEventId(2)}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              selectedEventId === 2
+                ? 'bg-purple-500 text-white shadow'
+                : 'bg-dark-900 text-gray-400 hover:text-gray-200 border border-dark-800'
+            }`}
+          >
+            🛡 3rd Year R1
+          </button>
+          <button
+            onClick={() => setSelectedEventId(4)}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+              selectedEventId === 4
+                ? 'bg-emerald-500 text-dark-950 shadow'
+                : 'bg-dark-900 text-gray-400 hover:text-gray-200 border border-dark-800'
+            }`}
+          >
+            ⚡ 3rd Year R2
+          </button>
+        </div>
+
         {(!live || live.length === 0) ? (
           <div className="text-center py-8 text-gray-500 text-sm font-mono">
             No active teams in live sessions.
@@ -199,11 +263,12 @@ const AdminDashboard = () => {
               <thead className="bg-dark-950 text-gray-400 text-xs font-mono uppercase tracking-wider border-b border-dark-800">
                 <tr>
                   <th className="py-3 px-4">Team Name</th>
-                  <th className="py-3 px-4">Event</th>
+                  <th className="py-3 px-4">Event / Round</th>
                   <th className="py-3 px-4 text-center">Current Score</th>
                   <th className="py-3 px-4 text-center">Questions Attempted</th>
                   <th className="py-3 px-4 text-center">Warnings</th>
                   <th className="py-3 px-4 text-center">Test Status</th>
+                  <th className="py-3 px-4 text-right">Time Consumed</th>
                   <th className="py-3 px-4 text-right">Time Remaining</th>
                 </tr>
               </thead>
@@ -251,6 +316,9 @@ const AdminDashboard = () => {
                       >
                         {t.test_status || t.status}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-right text-amber-300 font-bold">
+                      {formatTime(t.time_consumed ?? t.time_used ?? t.time_elapsed)}
                     </td>
                     <td className="py-3 px-4 text-right text-gray-300 font-bold">
                       {t.time_remaining !== undefined ? `${Math.floor(t.time_remaining / 60)}m ${t.time_remaining % 60}s` : '—'}

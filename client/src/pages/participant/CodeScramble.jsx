@@ -371,6 +371,41 @@ const ParticipantCodeScramble = () => {
             <IconCastle className="w-3.5 h-3.5 text-amber-400" />
             <span>Clan Camp</span>
           </button>
+
+          {/* Round Toggle in Header */}
+          <div className="flex items-center bg-stone-950 p-0.5 rounded-lg border border-stone-800 shrink-0">
+            <button
+              onClick={() => {
+                sessionStorage.setItem('tech_arena_active_event_id', '1');
+                setLoading(true);
+                fetchStatus();
+                fetchQuestions();
+              }}
+              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
+                (parseInt(sessionStorage.getItem('tech_arena_active_event_id') || '1', 10) === 1)
+                  ? 'bg-amber-500 text-stone-950 shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              R1
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.setItem('tech_arena_active_event_id', '3');
+                setLoading(true);
+                fetchStatus();
+                fetchQuestions();
+              }}
+              className={`px-2.5 py-1 rounded text-xs font-fantasy font-bold transition-all ${
+                (parseInt(sessionStorage.getItem('tech_arena_active_event_id') || '1', 10) === 3)
+                  ? 'bg-amber-500 text-stone-950 shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              R2
+            </button>
+          </div>
+
           <div className="h-5 w-px bg-stone-700 mx-1"></div>
           {(Array.isArray(questions) ? questions : []).map((q, idx) => (
             <button

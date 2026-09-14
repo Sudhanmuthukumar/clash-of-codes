@@ -186,11 +186,11 @@ async function calculateTeamResults(teamId, eventId) {
     }
 
     let timeTaken = null;
-    // Pick the session for the specific eventId being queried, then fall back to most recent.
-    // team.testSessions is ordered by createdAt desc (most recent first).
+    // Pick the session for the specific eventId being queried.
+    // If eventId is provided, ONLY pick the session for that eventId (do NOT leak other round sessions).
     const session = team.testSessions && team.testSessions.length > 0
         ? (eventId
-            ? (team.testSessions.find(s => s.eventId === eventId) || team.testSessions[0])
+            ? (team.testSessions.find(s => s.eventId === eventId) || null)
             : team.testSessions[0])
         : null;
     const sessionLimit = session?.event?.timeLimitMinutes;
@@ -262,13 +262,19 @@ async function calculateTeamResults(teamId, eventId) {
 }
 
 async function getEventResults(eventId) {
+    let targetEvent = null;
+    if (eventId) {
+        targetEvent = await prisma.event.findUnique({ where: { id: eventId } });
+    }
+
     const teams = await prisma.team.findMany({
-        where: eventId ? {
+        where: targetEvent ? {
             OR: [
+                { year: targetEvent.year },
                 { eventId },
                 { allocations: { some: { question: { eventId } } } }
             ]
-        } : undefined,
+        } : (eventId ? { eventId } : undefined),
         select: { id: true }
     });
 

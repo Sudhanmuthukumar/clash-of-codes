@@ -21,6 +21,7 @@ const domains = [
 ];
 
 const AdminHiddenTech = () => {
+  const [selectedRound, setSelectedRound] = useState(1); // 1 = Round 1 (Event 2), 2 = Round 2 (Event 4)
   const [questions, setQuestions] = useState([]);
   const [eventData, setEventData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,14 +39,16 @@ const AdminHiddenTech = () => {
 
   const toast = useToast();
 
+  const activeEventId = selectedRound === 1 ? 2 : 4;
+
   const fetchData = async () => {
     try {
       const [qRes, evRes] = await Promise.all([
-        api.get('/admin/questions?event_id=2'),
+        api.get(`/admin/questions?event_id=${activeEventId}`),
         api.get('/admin/events'),
       ]);
       setQuestions(qRes.data);
-      const ev = evRes.data.find(e => e.id === 2 || e.name.toLowerCase().includes('hidden'));
+      const ev = evRes.data.find(e => e.id === activeEventId || (selectedRound === 1 && e.name.toLowerCase().includes('round 1')) || (selectedRound === 2 && e.name.toLowerCase().includes('round 2')));
       setEventData(ev);
     } catch (err) {
       toast.error('Failed to load Crack the Code data');
@@ -56,7 +59,7 @@ const AdminHiddenTech = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedRound]);
 
   const handleOpenModal = (q = null) => {
     if (q) {
@@ -177,7 +180,7 @@ const AdminHiddenTech = () => {
         toast.success('Crack the Code question updated');
       } else {
         await api.post('/admin/questions/hidden-tech', {
-          event_id: 2,
+          event_id: activeEventId,
           title: formData.title,
           marks: parseInt(formData.marks, 10),
           final_output: formData.final_output,
@@ -254,6 +257,30 @@ const AdminHiddenTech = () => {
 
         <button onClick={() => handleOpenModal()} className="btn-primary text-xs font-bold px-4 py-2 uppercase tracking-wide">
           + Forge Main Challenge
+        </button>
+      </div>
+
+      {/* Round Selection Tabs */}
+      <div className="flex border-b border-stone-800 font-sans text-sm">
+        <button
+          onClick={() => setSelectedRound(1)}
+          className={`px-6 py-3 font-bold transition-all border-b-2 flex items-center gap-2 ${
+            selectedRound === 1
+              ? 'text-amber-400 border-amber-400 bg-amber-950/30'
+              : 'text-stone-400 border-transparent hover:text-stone-200'
+          }`}
+        >
+          <span>⚔️ Round 1 Pool (6 Puzzles)</span>
+        </button>
+        <button
+          onClick={() => setSelectedRound(2)}
+          className={`px-6 py-3 font-bold transition-all border-b-2 flex items-center gap-2 ${
+            selectedRound === 2
+              ? 'text-amber-400 border-amber-400 bg-amber-950/30'
+              : 'text-stone-400 border-transparent hover:text-stone-200'
+          }`}
+        >
+          <span>🔥 Round 2 Pool (6 Puzzles)</span>
         </button>
       </div>
 

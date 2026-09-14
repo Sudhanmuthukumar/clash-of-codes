@@ -76,7 +76,9 @@ router.post('/test-session/start', async (req, res) => {
             include: { event: true }
         });
         if (!team) return res.status(404).json({ error: 'Team not found' });
-        const event = team.event;
+        const event = await prisma.event.findUnique({
+            where: { id: eventId }
+        }) || team.event;
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
         if (event.status !== 'live') {
@@ -110,15 +112,6 @@ router.post('/test-session/start', async (req, res) => {
                         data: { status: 'EXPIRED' }
                     });
                 }
-                if (team.status === 'active') {
-                    await prisma.team.update({
-                        where: { id: teamId },
-                        data: { status: 'time_expired', eventSubmittedAt: session.expiresAt }
-                    });
-                    if (team.year === '2nd Year') {
-                        await finalizeCodeScrambleForTeam(teamId, eventId);
-                    }
-                }
                 return res.status(403).json({
                     error: 'Time expired',
                     time_expired: true,
@@ -126,11 +119,11 @@ router.post('/test-session/start', async (req, res) => {
                 });
             }
 
-            if (session.status === 'SUBMITTED' || team.status === 'completed') {
+            if (session.status === 'SUBMITTED') {
                 return res.status(403).json({
                     error: 'Test already submitted',
                     is_completed: true,
-                    message: 'Your clan has already submitted the test.'
+                    message: 'Your clan has already submitted this test.'
                 });
             }
 
@@ -281,7 +274,9 @@ router.get('/status', async (req, res) => {
             }
         });
         if (!team) return res.status(404).json({ error: 'Team not found' });
-        const event = team.event;
+        const event = await prisma.event.findUnique({
+            where: { id: req.user.eventId }
+        }) || team.event;
         if (!event) return res.status(404).json({ error: 'Event not found' });
 
         const server_time = new Date();
@@ -311,49 +306,35 @@ router.get('/status', async (req, res) => {
                         data: { status: 'EXPIRED' }
                     });
                 }
-                if (team.status === 'active') {
-                    await prisma.team.update({
-                        where: { id: team.id },
-                        data: { status: 'time_expired', eventSubmittedAt: testSession.expiresAt }
-                    });
-                    if (team.year === '2nd Year') {
-                        await finalizeCodeScrambleForTeam(team.id, event.id);
-                    }
-                }
             } else if (testSession.status === 'ACTIVE') {
                 const diffMs = new Date(testSession.expiresAt).getTime() - server_time.getTime();
                 remaining_seconds = Math.max(0, Math.floor(diffMs / 1000));
+            } else if (testSession.status === 'SUBMITTED') {
+                remaining_seconds = 0;
             }
         } else if (event.status === 'live' && team.eventStartedAt) {
             // Fallback before testSession record
             const elapsed = Math.floor((server_time - new Date(team.eventStartedAt)) / 1000);
             const totalAllowed = ((event.timeLimitMinutes || 40) * 60) + pauseDuration;
             remaining_seconds = Math.max(0, totalAllowed - elapsed);
-
-            if (remaining_seconds === 0 && team.status === 'active') {
-                await prisma.team.update({
-                    where: { id: team.id },
-                    data: { status: 'time_expired', eventSubmittedAt: server_time }
-                });
-                team.status = 'time_expired';
-                if (team.year === '2nd Year') {
-                    await finalizeCodeScrambleForTeam(team.id, event.id);
-                }
-            }
         } else {
             remaining_seconds = (event.timeLimitMinutes || 40) * 60;
         }
 
+        const effectiveTeamStatus = testSession 
+            ? (testSession.status === 'SUBMITTED' ? 'completed' : (testSession.status === 'EXPIRED' ? 'time_expired' : (testSession.status === 'TERMINATED' ? 'terminated' : team.status)))
+            : team.status;
+
         res.json({
             status: event.status,
-            team_status: team.status,
+            team_status: effectiveTeamStatus,
             server_time: server_time.toISOString(),
             start_time: testSession ? testSession.startedAt.toISOString() : (team.eventStartedAt ? team.eventStartedAt.toISOString() : null),
             expires_at: testSession ? testSession.expiresAt.toISOString() : null,
             time_limit_minutes: event.timeLimitMinutes || 40,
             remaining_seconds,
             pause_duration_seconds: pauseDuration,
-            is_expired: is_expired || team.status === 'time_expired' || (event.status === 'live' && remaining_seconds === 0),
+            is_expired: is_expired || (testSession && testSession.status === 'EXPIRED') || (event.status === 'live' && remaining_seconds === 0),
             is_terminated,
             violation_count,
             session_status
@@ -375,11 +356,7 @@ router.post('/submit', submissionLimiter, async (req, res) => {
         });
         if (!team) return res.status(404).json({ error: 'Team not found' });
 
-        if (team.status === 'completed') {
-            return res.status(400).json({ error: 'Event already submitted and completed.', already_submitted: true });
-        }
-
-        // Check if testSession is already submitted or terminated
+        // Check if THIS testSession is already submitted or terminated
         const existingSession = await prisma.testSession.findUnique({
             where: { teamId_eventId: { teamId, eventId } }
         });
@@ -387,23 +364,26 @@ router.post('/submit', submissionLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Test session is already finalized.', already_submitted: true });
         }
 
-        // If Code Scramble (2nd Year), finalize and grade all allocated questions
+        // If Code Scramble (2nd Year), finalize and grade all allocated questions for this event
         if (team.year === '2nd Year') {
             await finalizeCodeScrambleForTeam(team.id, eventId);
         }
 
+        // Record submission timestamp on team and update session to SUBMITTED
         await prisma.team.update({
             where: { id: teamId },
             data: {
-                status: 'completed',
                 eventSubmittedAt: now
             }
         });
 
-        // Update TestSession status to SUBMITTED if exists
+        // Update TestSession status to SUBMITTED and updatedAt to now
         await prisma.testSession.updateMany({
             where: { teamId, eventId },
-            data: { status: 'SUBMITTED' }
+            data: { 
+                status: 'SUBMITTED',
+                updatedAt: now
+            }
         });
 
         res.json({ submitted: true, message: 'Your submission has been recorded successfully.' });

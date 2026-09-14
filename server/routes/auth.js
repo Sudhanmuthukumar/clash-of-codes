@@ -254,20 +254,22 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
             if (requestedEvent) {
                 activeEventId = requestedEvent.id;
             }
-        } else if (team.year === '2nd Year') {
+        } else {
             const events = await prisma.event.findMany({
-                where: { year: '2nd Year' },
+                where: { year: team.year },
                 orderBy: { id: 'asc' }
             });
             const r1 = events.find(e => e.name.toLowerCase().includes('round 1')) || events[0];
             const r2 = events.find(e => e.name.toLowerCase().includes('round 2')) || events[1];
 
-            if (r2 && r2.status === 'live') {
+            if (r2 && r2.status === 'live' && (!r1 || r1.status !== 'live')) {
                 activeEventId = r2.id;
             } else if (r1 && r1.status === 'live') {
                 activeEventId = r1.id;
             } else if (r1 && r1.status === 'ended' && r2 && r2.status !== 'ended') {
                 activeEventId = r2.id;
+            } else if (r1) {
+                activeEventId = r1.id;
             }
         }
 
@@ -300,6 +302,18 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
         const m2Name = team.member2Name || team.participant2Name;
         const m2Sec = team.member2Section || team.participant2Batch;
 
+        const yearEvents = await prisma.event.findMany({
+            where: { year: team.year },
+            orderBy: { id: 'asc' }
+        });
+        const rounds = yearEvents.map((ev, idx) => ({
+            id: ev.id,
+            name: ev.name,
+            round: idx + 1,
+            status: ev.status,
+            time_limit_minutes: ev.timeLimitMinutes
+        }));
+
         res.json({
             token,
             role: 'participant',
@@ -311,6 +325,7 @@ router.post('/participant/login', loginLimiter, async (req, res) => {
                 year: team.year,
                 eventId: team.eventId,
                 event: team.event ? team.event.name : null,
+                rounds,
                 member_1_name: m1Name,
                 member_1_section: m1Sec,
                 member_2_name: m2Name,
@@ -353,6 +368,20 @@ router.get('/me', authenticateToken, async (req, res) => {
             const m2Name = team.member2Name || team.participant2Name;
             const m2Sec = team.member2Section || team.participant2Batch;
 
+            const yearEvents = await prisma.event.findMany({
+                where: { year: team.year },
+                orderBy: { id: 'asc' }
+            });
+            const rounds = yearEvents.map((ev, idx) => ({
+                id: ev.id,
+                name: ev.name,
+                round: idx + 1,
+                status: ev.status,
+                time_limit_minutes: ev.timeLimitMinutes
+            }));
+
+            const activeEvent = yearEvents.find(e => e.id === req.user.eventId) || team.event;
+
             const userData = {
                 id: team.id,
                 role: 'participant',
@@ -365,8 +394,9 @@ router.get('/me', authenticateToken, async (req, res) => {
                 member_2_section: m2Sec,
                 participant1: m1Name,
                 participant2: m2Name,
-                event: team.event ? team.event.name : null,
-                eventId: team.eventId
+                event: activeEvent ? activeEvent.name : (team.event ? team.event.name : null),
+                eventId: req.user.eventId || team.eventId,
+                rounds
             };
             res.json({
                 ...userData,
