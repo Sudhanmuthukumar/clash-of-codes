@@ -333,6 +333,18 @@ const ParticipantCodeScramble = () => {
   return (
     <TestModeGuard
       eventName="Code Scramble"
+      onSessionLoaded={(sess) => {
+        if (sess) {
+          setStatus(prev => ({
+            ...(prev || {}),
+            status: sess.status === 'ACTIVE' ? 'live' : (prev?.status || 'live'),
+            server_time: sess.server_time || (prev?.server_time),
+            start_time: sess.startedAt || (prev?.start_time),
+            expires_at: sess.expiresAt || (prev?.expires_at),
+            remaining_seconds: sess.remaining_seconds !== undefined ? sess.remaining_seconds : (prev?.remaining_seconds)
+          }));
+        }
+      }}
       onSessionExpired={() => {
         fetchStatus();
         toast.error("TIME'S UP! The battle has concluded.");

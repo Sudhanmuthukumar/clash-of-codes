@@ -24,10 +24,10 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
 
     const offset = cachedClientOffset !== null ? cachedClientOffset : 0;
     const now = Date.now() + offset;
-    const targetExpiry = expiresAt ? new Date(expiresAt).getTime() : null;
 
-    if (targetExpiry) {
-      return Math.max(0, Math.floor((targetExpiry - now) / 1000));
+    if (expiresAt) {
+      const exp = new Date(expiresAt).getTime();
+      return Math.max(0, Math.floor((exp - now) / 1000));
     }
 
     if (startTime) {
@@ -38,20 +38,18 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
       return Math.max(0, Math.floor((limitMs - elapsed) / 1000));
     }
 
+    // While waiting for server-authoritative expiresAt/status, do NOT return 40:00 if live/in-progress
+    if (isLive) {
+      return null;
+    }
+
     return (timeLimitMinutes || 40) * 60;
   };
 
-  // Synchronous state initialization - NEVER starts at 0 or flashes 40:00 if an active session exists
-  const [timeLeft, setTimeLeft] = useState(computeRemainingSeconds);
+  const initialRemaining = computeRemainingSeconds();
+  const [timeLeft, setTimeLeft] = useState(initialRemaining);
   const prevTimeLeftRef = useRef(null);
-  const minTimeSeenRef = useRef(null);
-
-  useEffect(() => {
-    console.log('[TIMER MOUNT]', { startTime, expiresAt, status: eventStatus });
-    return () => {
-      console.log('[TIMER UNMOUNT]', { startTime, expiresAt, status: eventStatus });
-    };
-  }, []);
+  const minTimeSeenRef = useRef(initialRemaining !== null ? initialRemaining : null);
 
   useEffect(() => {
     if (serverTime && cachedClientOffset === null) {
@@ -63,9 +61,15 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
     const updateTimer = () => {
       let secs = computeRemainingSeconds();
 
+      // If waiting for authoritative expiry time, keep null until ready
+      if (secs === null) {
+        setTimeLeft(null);
+        return;
+      }
+
       // MONOTONIC CLAMP: For an active running session, the visible timer must ONLY decrease or stay equal.
       // It must never increase due to millisecond jitter or clock skew, and never flash higher.
-      if (isLive && targetExpiry) {
+      if (isLive && (targetExpiry || startTime)) {
         if (minTimeSeenRef.current === null) {
           minTimeSeenRef.current = secs;
         } else {
@@ -85,9 +89,12 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
-  }, [expiresAt, startTime, eventStatus, timeLimitMinutes, pauseDuration, isNotStarted, isEnded, isPaused]);
+  }, [expiresAt, startTime, eventStatus, timeLimitMinutes, pauseDuration, isNotStarted, isEnded, isPaused, isLive, targetExpiry]);
 
   const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined) {
+      return '--:--';
+    }
     const sVal = Math.max(0, seconds || 0);
     const hrs = Math.floor(sVal / 3600);
     const m = Math.floor((sVal % 3600) / 60).toString().padStart(2, '0');
@@ -98,8 +105,8 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
     return `${m}:${s}`;
   };
 
-  const isLowTime = timeLeft > 0 && timeLeft < 300; // < 5 mins
-  const isCritical = timeLeft > 0 && timeLeft < 60; // < 1 min
+  const isLowTime = timeLeft !== null && timeLeft > 0 && timeLeft < 300; // < 5 mins
+  const isCritical = timeLeft !== null && timeLeft > 0 && timeLeft < 60; // < 1 min
 
   return (
     <div className={`text-center p-4 rounded-xl border-2 bg-stone-950/80 backdrop-blur-md transition-all shadow-lg
@@ -116,10 +123,17 @@ const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pa
         {isNotStarted && formatTime((timeLimitMinutes || 40) * 60)}
         {isPaused && <span className="text-amber-500 text-2xl font-fantasy tracking-wider">PAUSED</span>}
         {isEnded && <span className="text-red-500 text-2xl font-fantasy tracking-wider">TIME'S UP</span>}
-        {isLive && (timeLeft === 0 ? <span className="text-red-500 text-2xl font-fantasy tracking-wider">TIME'S UP</span> : formatTime(timeLeft))}
+        {isLive && (
+          timeLeft === null 
+            ? <span className="tracking-widest text-stone-500">--:--</span>
+            : timeLeft === 0 
+            ? <span className="text-red-500 text-2xl font-fantasy tracking-wider">TIME'S UP</span> 
+            : formatTime(timeLeft)
+        )}
       </div>
     </div>
   );
 };
 
 export default CountdownTimer;
+

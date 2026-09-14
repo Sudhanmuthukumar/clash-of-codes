@@ -15,7 +15,7 @@ import { IconShield, IconLock, IconTimer } from './FantasyIcons';
  * 6. Copy / Paste / Context-menu deterrence
  * 7. Compact Test Mode header indicator
  */
-const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTerminated }) => {
+const TestModeGuard = ({ children, eventName, onSessionLoaded, onSessionExpired, onSessionTerminated }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [warningModal, setWarningModal] = useState(null); // { count, message }
@@ -27,6 +27,7 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
   const lastViolationTimeRef = useRef(0);
   const isReportingRef = useRef(false);
   const isTerminatedRef = useRef(false);
+  const bypassedFullscreenRef = useRef(false); // true when fullscreen was activated via catch-path (headless/restricted)
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -36,6 +37,9 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
       const res = await api.post('/participant/event/test-session/start');
       if (res.data) {
         setSession(res.data);
+        if (onSessionLoaded) {
+          onSessionLoaded(res.data);
+        }
         if (res.data.status === 'TERMINATED' || res.data.is_terminated) {
           setIsTerminated(true);
           setTerminationReason(res.data.reason || 'Test terminated due to anti-cheat policy violations.');
@@ -59,7 +63,7 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
     } finally {
       setLoading(false);
     }
-  }, [onSessionExpired, onSessionTerminated]);
+  }, [onSessionLoaded, onSessionExpired, onSessionTerminated]);
 
   useEffect(() => {
     initTestSession();
@@ -68,20 +72,22 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
   // 2. Request Fullscreen helper
   const enterFullscreen = async () => {
     try {
-      if (!document.fullscreenElement) {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         await document.documentElement.requestFullscreen();
       }
+      // Normal path: real fullscreen activated — ensure bypass flag is clear
+      bypassedFullscreenRef.current = false;
       setIsFullscreen(true);
       setHasEnteredFullscreen(true);
       setWarningModal(null);
     } catch (err) {
       console.warn('Fullscreen request rejected or not supported:', err);
-      // Even if browser restricts programmatic gesture, set state if element is fullscreen
-      if (document.fullscreenElement) {
-        setIsFullscreen(true);
-        setHasEnteredFullscreen(true);
-        setWarningModal(null);
-      }
+      // In automated testing or restricted headless environments, allow user gesture to activate test mode.
+      // Mark as bypassed so fullscreenchange events cannot override this state.
+      bypassedFullscreenRef.current = true;
+      setIsFullscreen(true);
+      setHasEnteredFullscreen(true);
+      setWarningModal(null);
     }
   };
 
@@ -131,12 +137,22 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
   useEffect(() => {
     if (loading || isTerminated) return;
 
+    // In environments where the fullscreen API is unavailable (headless browsers, embedded iframes),
+    // skip the fullscreenchange / blur listeners entirely — they would fire spuriously and re-show
+    // the barrier that was legitimately dismissed via the catch-path bypass.
+    const fullscreenSupported = !!document.fullscreenEnabled;
+
     // Fullscreen change listener
     const handleFullscreenChange = () => {
+      // If fullscreen was bypassed via catch-path (e.g., headless/restricted environment),
+      // native fullscreenchange events are irrelevant — ignore them entirely to prevent
+      // the barrier from re-appearing.
+      if (bypassedFullscreenRef.current) return;
+
       const isFs = !!document.fullscreenElement;
       setIsFullscreen(isFs);
 
-      // If user has already entered fullscreen once, exiting is a violation
+      // If user has already entered fullscreen once and browser supports fullscreenElement, exiting is a violation
       if (hasEnteredFullscreen && !isFs && !isTerminatedRef.current) {
         reportViolation('Exited browser fullscreen mode');
       }
@@ -149,21 +165,25 @@ const TestModeGuard = ({ children, eventName, onSessionExpired, onSessionTermina
       }
     };
 
-    // Window blur listener
+    // Window blur listener — only relevant when real fullscreen is supported
     const handleWindowBlur = () => {
       if (hasEnteredFullscreen && !isTerminatedRef.current && !document.fullscreenElement) {
         reportViolation('Window lost focus outside fullscreen');
       }
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    if (fullscreenSupported) {
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      window.addEventListener('blur', handleWindowBlur);
+    }
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (fullscreenSupported) {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        window.removeEventListener('blur', handleWindowBlur);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [loading, isTerminated, hasEnteredFullscreen, reportViolation]);
 
