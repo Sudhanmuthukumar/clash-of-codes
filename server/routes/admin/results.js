@@ -31,7 +31,12 @@ async function calculateTeamResults(teamId, eventId) {
             csAttempts: true,
             htSubAttempts: true,
             htFinalAttempts: true,
-            hints: true
+            hints: true,
+            testSessions: {
+                where: eventId ? { eventId } : undefined,
+                include: { event: true },
+                orderBy: { createdAt: 'desc' }
+            }
         }
     });
     if (!team) return null;
@@ -175,10 +180,40 @@ async function calculateTeamResults(teamId, eventId) {
     }
 
     let timeTaken = null;
-    if (team.eventStartedAt && team.eventSubmittedAt) {
-        timeTaken = Math.round((new Date(team.eventSubmittedAt).getTime() - new Date(team.eventStartedAt).getTime()) / 1000);
-    } else if (team.eventStartedAt) {
-        timeTaken = Math.round((Date.now() - new Date(team.eventStartedAt).getTime()) / 1000);
+    const session = team.testSessions && team.testSessions.length > 0 ? team.testSessions[0] : null;
+    const sessionLimit = session?.event?.timeLimitMinutes;
+    const maxAllowedSeconds = (sessionLimit || team.event?.timeLimitMinutes || 40) * 60;
+
+    // Only finalized teams (SUBMITTED, EXPIRED, TERMINATED, or team.status completed/time_expired) have finalized completion time
+    const isFinalized = (session && ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(session.status)) ||
+                        team.status === 'completed' ||
+                        team.status === 'time_expired';
+
+    if (isFinalized) {
+        if (session) {
+            const startMs = new Date(session.startedAt).getTime();
+            if (session.status === 'EXPIRED') {
+                // For EXPIRY: timeUsedSeconds = testSession.expiresAt - testSession.startedAt
+                timeTaken = Math.round((new Date(session.expiresAt).getTime() - startMs) / 1000);
+            } else if (session.status === 'SUBMITTED' || session.status === 'TERMINATED') {
+                // For FINAL SUBMIT: timeUsedSeconds = finalSubmittedAt - testSession.startedAt
+                const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : new Date(session.updatedAt || session.expiresAt).getTime();
+                timeTaken = Math.round((endMs - startMs) / 1000);
+            } else {
+                // Fallback for session
+                const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : new Date(session.expiresAt).getTime();
+                timeTaken = Math.round((endMs - startMs) / 1000);
+            }
+        } else if (team.eventStartedAt) {
+            const startMs = new Date(team.eventStartedAt).getTime();
+            const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : startMs + (maxAllowedSeconds * 1000);
+            timeTaken = Math.round((endMs - startMs) / 1000);
+        }
+
+        // Sanity check: timeUsedSeconds must never exceed event.timeLimitMinutes * 60 and never be negative
+        if (timeTaken !== null) {
+            timeTaken = Math.max(0, Math.min(timeTaken, maxAllowedSeconds));
+        }
     }
 
     const m1Name = team.member1Name || team.participant1Name;
@@ -200,7 +235,8 @@ async function calculateTeamResults(teamId, eventId) {
         member_2_section: m2Sec,
         email: team.email,
         event: team.event ? team.event.name : null,
-        status: team.status,
+        status: session && session.status === 'TERMINATED' ? 'terminated' : (session && session.status === 'SUBMITTED' ? 'completed' : (session && session.status === 'EXPIRED' ? 'time_expired' : team.status)),
+        test_status: session ? session.status : 'NOT_STARTED',
         total_marks: Math.max(0, totalMarks),
         total_possible: totalPossible,
         questions_attempted: attempted,
@@ -230,7 +266,7 @@ async function getEventResults(eventId) {
         if (res && (res.questions_allocated > 0 || !eventId)) results.push(res);
     }
 
-    // Sort: marks DESC, time ASC
+    // Sort: marks DESC, time ASC (only for finalized results with valid time_taken)
     results.sort((a, b) => {
         if (b.total_marks !== a.total_marks) return b.total_marks - a.total_marks;
         const aTime = a.time_taken != null ? a.time_taken : Infinity;

@@ -157,10 +157,11 @@ const Results = () => {
               <thead className="bg-stone-950 text-stone-400 text-xs font-sans uppercase tracking-wider border-b border-stone-800">
                 <tr>
                   <th className="py-3 px-4 w-14 text-center">Rank</th>
-                  <th className="py-3 px-4">Clan</th>
-                  <th className="py-3 px-4">Year</th>
+                  <th className="py-3 px-4">Team</th>
+                  <th className="py-3 px-4">Member 1</th>
+                  <th className="py-3 px-4">Member 2</th>
                   <th className="py-3 px-4 text-center">Score</th>
-                  <th className="py-3 px-4 text-center">Time</th>
+                  <th className="py-3 px-4 text-center">Time Used</th>
                   <th className="py-3 px-4 text-center">Challenges</th>
                   <th className="py-3 px-4 text-center">Hints</th>
                   <th className="py-3 px-4 text-center">Status</th>
@@ -189,21 +190,34 @@ const Results = () => {
                         </td>
                         <td className="py-3 px-4 font-sans font-bold text-white">
                           <div className="text-sm font-fantasy text-amber-200">{r.team_name}</div>
-                          <div className="text-[11px] text-stone-400 font-sans">
-                            {r.p1_name} {r.p2_name ? `& ${r.p2_name}` : ''}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 font-sans text-stone-300">
-                          <span className="text-xs px-2 py-0.5 rounded bg-stone-900 border border-stone-700 font-mono">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-stone-900 border border-stone-800 font-mono text-stone-400">
                             {r.year}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 font-sans text-stone-200">
+                          <div>{r.member_1_name || r.p1_name}</div>
+                          {(r.member_1_section || r.p1_batch) && (
+                            <div className="text-[11px] text-stone-500 font-mono">Sec {r.member_1_section || r.p1_batch}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-sans text-stone-200">
+                          {(r.member_2_name || r.p2_name) ? (
+                            <>
+                              <div>{r.member_2_name || r.p2_name}</div>
+                              {(r.member_2_section || r.p2_batch) && (
+                                <div className="text-[11px] text-stone-500 font-mono">Sec {r.member_2_section || r.p2_batch}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-stone-600">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className="text-sm font-black text-amber-300 bg-amber-950/40 border border-amber-800/60 px-2.5 py-1 rounded">
                             {r.total_marks}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-center text-stone-300 font-mono">
+                        <td className="py-3 px-4 text-center text-stone-300 font-mono font-bold">
                           {formatSeconds(r.time_taken)}
                         </td>
                         <td className="py-3 px-4 text-center font-bold text-stone-300">
@@ -216,9 +230,13 @@ const Results = () => {
                           <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase ${
                             r.status === 'completed'
                               ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
-                              : 'bg-stone-900 text-stone-400 border border-stone-700'
+                              : r.status === 'time_expired'
+                              ? 'bg-stone-800 text-stone-400 border border-stone-700'
+                              : r.status === 'terminated'
+                              ? 'bg-red-950 text-red-400 border border-red-800'
+                              : 'bg-blue-950 text-blue-400 border border-blue-800'
                           }`}>
-                            {r.status === 'completed' ? 'Finished' : r.status || 'Active'}
+                            {r.status === 'completed' ? 'Submitted' : (r.status === 'time_expired' ? 'Expired' : (r.status === 'terminated' ? 'Terminated' : 'Active'))}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">

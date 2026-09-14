@@ -101,6 +101,66 @@ router.get('/', async (req, res) => {
             remaining_seconds = (event.timeLimitMinutes || 40) * 60;
         }
 
+        let timeUsedSeconds = null;
+        let finalScore = null;
+        let questionsSolved = 0;
+
+        const maxAllowedSeconds = (event.timeLimitMinutes || 40) * 60;
+        const isFinalized = (testSession && ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(testSession.status)) ||
+                            team.status === 'completed' ||
+                            team.status === 'time_expired';
+
+        if (isFinalized) {
+            if (testSession) {
+                const startMs = new Date(testSession.startedAt).getTime();
+                if (testSession.status === 'EXPIRED') {
+                    timeUsedSeconds = Math.round((new Date(testSession.expiresAt).getTime() - startMs) / 1000);
+                } else if (testSession.status === 'SUBMITTED' || testSession.status === 'TERMINATED') {
+                    const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : new Date(testSession.updatedAt || testSession.expiresAt).getTime();
+                    timeUsedSeconds = Math.round((endMs - startMs) / 1000);
+                } else {
+                    const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : new Date(testSession.expiresAt).getTime();
+                    timeUsedSeconds = Math.round((endMs - startMs) / 1000);
+                }
+            } else if (team.eventStartedAt) {
+                const startMs = new Date(team.eventStartedAt).getTime();
+                const endMs = team.eventSubmittedAt ? new Date(team.eventSubmittedAt).getTime() : startMs + (maxAllowedSeconds * 1000);
+                timeUsedSeconds = Math.round((endMs - startMs) / 1000);
+            }
+
+            if (timeUsedSeconds !== null) {
+                timeUsedSeconds = Math.max(0, Math.min(timeUsedSeconds, maxAllowedSeconds));
+            }
+
+            // Calculate final marks and questions solved for completed team
+            if (team.year === '2nd Year') {
+                const attempts = await prisma.codeScrambleAttempt.findMany({
+                    where: { teamId: team.id, isSubmitted: 1 },
+                    select: { marksAwarded: true, isCorrect: true }
+                });
+                finalScore = attempts.reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+                questionsSolved = attempts.filter(a => a.isCorrect === 1).length;
+            } else {
+                const subAttempts = await prisma.hiddenTechSubAttempt.findMany({
+                    where: { teamId: team.id, isCorrect: 1 },
+                    select: { marksAwarded: true }
+                });
+                const finalAttempts = await prisma.hiddenTechFinalAttempt.findMany({
+                    where: { teamId: team.id, isCorrect: 1 },
+                    select: { marksAwarded: true }
+                });
+                const hints = await prisma.hintUsage.findMany({
+                    where: { teamId: team.id },
+                    select: { penalty: true }
+                });
+                const subMarks = subAttempts.reduce((s, a) => s + (a.marksAwarded || 0), 0);
+                const finalMarks = finalAttempts.reduce((s, a) => s + (a.marksAwarded || 0), 0);
+                const hintPenalty = hints.reduce((s, h) => s + (h.penalty || 0), 0);
+                finalScore = Math.max(0, subMarks + finalMarks - hintPenalty);
+                questionsSolved = finalAttempts.length;
+            }
+        }
+
         const m1Name = team.member1Name || team.participant1Name;
         const m1Sec = team.member1Section || team.participant1Batch;
         const m2Name = team.member2Name || team.participant2Name;
@@ -142,7 +202,10 @@ router.get('/', async (req, res) => {
             remaining_seconds,
             pause_duration: pauseDuration,
             test_session_status: testSession ? testSession.status : 'NOT_STARTED',
-            violation_count: testSession ? testSession.violationCount : 0
+            violation_count: testSession ? testSession.violationCount : 0,
+            time_used_seconds: timeUsedSeconds,
+            final_score: finalScore,
+            questions_solved: questionsSolved
         });
     } catch (err) {
         console.error('Participant dashboard error:', err);

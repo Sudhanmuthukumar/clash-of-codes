@@ -1,63 +1,91 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration = 0, eventStatus, onExpire }) => {
-  const [timeLeft, setTimeLeft] = useState(0);
-  const prevTimeLeftRef = useRef(null);
+// Module-level cached client offset to prevent jitter across re-renders
+let cachedClientOffset = null;
 
+const CountdownTimer = ({ serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration = 0, eventStatus, onExpire }) => {
   const normStatus = (eventStatus || '').toUpperCase();
   const isNotStarted = normStatus === 'NOT_STARTED';
   const isPaused = normStatus === 'PAUSED';
   const isEnded = normStatus === 'ENDED' || normStatus === 'TIME_EXPIRED';
   const isLive = normStatus === 'LIVE' || normStatus === 'ACTIVE';
+  const targetExpiry = expiresAt ? new Date(expiresAt).getTime() : null;
 
-  useEffect(() => {
-    if (isNotStarted) {
-      setTimeLeft((timeLimitMinutes || 40) * 60);
-      return;
-    }
+  // Compute and memoize stable client offset
+  if (serverTime && cachedClientOffset === null) {
+    const serverRef = new Date(serverTime).getTime();
+    const localNow = Date.now();
+    cachedClientOffset = serverRef - localNow;
+  }
 
-    if (isEnded) {
-      setTimeLeft(0);
-      return;
-    }
+  const computeRemainingSeconds = () => {
+    if (isNotStarted) return (timeLimitMinutes || 40) * 60;
+    if (isEnded) return 0;
 
-    const start = startTime ? new Date(startTime).getTime() : new Date().getTime();
-    const serverRef = serverTime ? new Date(serverTime).getTime() : new Date().getTime();
-    const localNow = new Date().getTime();
-    const clientOffset = serverRef - localNow;
-
-    const limitMs = (timeLimitMinutes || 40) * 60 * 1000;
-    const pauseMs = (pauseDuration || 0) * 1000;
+    const offset = cachedClientOffset !== null ? cachedClientOffset : 0;
+    const now = Date.now() + offset;
     const targetExpiry = expiresAt ? new Date(expiresAt).getTime() : null;
 
+    if (targetExpiry) {
+      return Math.max(0, Math.floor((targetExpiry - now) / 1000));
+    }
+
+    if (startTime) {
+      const start = new Date(startTime).getTime();
+      const limitMs = (timeLimitMinutes || 40) * 60 * 1000;
+      const pauseMs = (pauseDuration || 0) * 1000;
+      const elapsed = now - start - pauseMs;
+      return Math.max(0, Math.floor((limitMs - elapsed) / 1000));
+    }
+
+    return (timeLimitMinutes || 40) * 60;
+  };
+
+  // Synchronous state initialization - NEVER starts at 0 or flashes 40:00 if an active session exists
+  const [timeLeft, setTimeLeft] = useState(computeRemainingSeconds);
+  const prevTimeLeftRef = useRef(null);
+  const minTimeSeenRef = useRef(null);
+
+  useEffect(() => {
+    console.log('[TIMER MOUNT]', { startTime, expiresAt, status: eventStatus });
+    return () => {
+      console.log('[TIMER UNMOUNT]', { startTime, expiresAt, status: eventStatus });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (serverTime && cachedClientOffset === null) {
+      const serverRef = new Date(serverTime).getTime();
+      const localNow = Date.now();
+      cachedClientOffset = serverRef - localNow;
+    }
+
     const updateTimer = () => {
-      const now = new Date().getTime() + clientOffset;
-      if (!isPaused) {
-        let remaining = 0;
-        if (targetExpiry) {
-          // Authoritative server-deadline countdown: strictly monotonic, immune to question switching
-          remaining = Math.max(0, targetExpiry - now);
+      let secs = computeRemainingSeconds();
+
+      // MONOTONIC CLAMP: For an active running session, the visible timer must ONLY decrease or stay equal.
+      // It must never increase due to millisecond jitter or clock skew, and never flash higher.
+      if (isLive && targetExpiry) {
+        if (minTimeSeenRef.current === null) {
+          minTimeSeenRef.current = secs;
         } else {
-          // Fallback if expiresAt is not provided
-          const elapsed = now - start - pauseMs;
-          remaining = Math.max(0, limitMs - elapsed);
+          secs = Math.min(secs, minTimeSeenRef.current);
+          minTimeSeenRef.current = secs;
         }
-
-        const secs = Math.floor(remaining / 1000);
-        setTimeLeft(secs);
-
-        if (secs === 0 && prevTimeLeftRef.current !== null && prevTimeLeftRef.current > 0) {
-          if (onExpire) onExpire();
-        }
-        prevTimeLeftRef.current = secs;
       }
+
+      setTimeLeft(secs);
+
+      if (secs === 0 && prevTimeLeftRef.current !== null && prevTimeLeftRef.current > 0) {
+        if (onExpire) onExpire();
+      }
+      prevTimeLeftRef.current = secs;
     };
 
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
-
     return () => clearInterval(timer);
-  }, [serverTime, startTime, expiresAt, timeLimitMinutes, pauseDuration, eventStatus, isNotStarted, isPaused, isEnded, onExpire]);
+  }, [expiresAt, startTime, eventStatus, timeLimitMinutes, pauseDuration, isNotStarted, isEnded, isPaused]);
 
   const formatTime = (seconds) => {
     const sVal = Math.max(0, seconds || 0);

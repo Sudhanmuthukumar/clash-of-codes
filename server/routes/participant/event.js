@@ -113,7 +113,7 @@ router.post('/test-session/start', async (req, res) => {
                 if (team.status === 'active') {
                     await prisma.team.update({
                         where: { id: teamId },
-                        data: { status: 'time_expired', eventSubmittedAt: now }
+                        data: { status: 'time_expired', eventSubmittedAt: session.expiresAt }
                     });
                     if (team.year === '2nd Year') {
                         await finalizeCodeScrambleForTeam(teamId, eventId);
@@ -314,7 +314,7 @@ router.get('/status', async (req, res) => {
                 if (team.status === 'active') {
                     await prisma.team.update({
                         where: { id: team.id },
-                        data: { status: 'time_expired', eventSubmittedAt: server_time }
+                        data: { status: 'time_expired', eventSubmittedAt: testSession.expiresAt }
                     });
                     if (team.year === '2nd Year') {
                         await finalizeCodeScrambleForTeam(team.id, event.id);
@@ -374,6 +374,18 @@ router.post('/submit', submissionLimiter, async (req, res) => {
             where: { id: teamId }
         });
         if (!team) return res.status(404).json({ error: 'Team not found' });
+
+        if (team.status === 'completed') {
+            return res.status(400).json({ error: 'Event already submitted and completed.', already_submitted: true });
+        }
+
+        // Check if testSession is already submitted or terminated
+        const existingSession = await prisma.testSession.findUnique({
+            where: { teamId_eventId: { teamId, eventId } }
+        });
+        if (existingSession && (existingSession.status === 'SUBMITTED' || existingSession.status === 'TERMINATED')) {
+            return res.status(400).json({ error: 'Test session is already finalized.', already_submitted: true });
+        }
 
         // If Code Scramble (2nd Year), finalize and grade all allocated questions
         if (team.year === '2nd Year') {

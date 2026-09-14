@@ -68,10 +68,16 @@ router.get('/live', async (req, res) => {
                 event: true,
                 csAttempts: {
                     where: { isSubmitted: 1 },
-                    select: { id: true }
+                    select: { id: true, marksAwarded: true }
+                },
+                htSubAttempts: {
+                    select: { id: true, marksAwarded: true, isCorrect: true }
                 },
                 htFinalAttempts: {
-                    select: { questionId: true }
+                    select: { questionId: true, marksAwarded: true, isCorrect: true }
+                },
+                hints: {
+                    select: { penalty: true }
                 },
                 testSessions: {
                     orderBy: { createdAt: 'desc' },
@@ -84,6 +90,17 @@ router.get('/live', async (req, res) => {
             const csCount = t.csAttempts.length;
             const htCount = t.htFinalAttempts.length;
             const questions_attempted = csCount + htCount;
+
+            // Compute current score
+            let current_score = 0;
+            if (t.year === '2nd Year') {
+                current_score = t.csAttempts.reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+            } else {
+                const subMarks = t.htSubAttempts.filter(a => a.isCorrect === 1).reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+                const finalMarks = t.htFinalAttempts.filter(a => a.isCorrect === 1).reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+                const hintPenalty = t.hints.reduce((sum, h) => sum + (h.penalty || 0), 0);
+                current_score = Math.max(0, subMarks + finalMarks - hintPenalty);
+            }
 
             const session = t.testSessions && t.testSessions.length > 0 ? t.testSessions[0] : null;
             const eventDuration = (t.event?.timeLimitMinutes || 40) * 60;
@@ -113,6 +130,7 @@ router.get('/live', async (req, res) => {
                 total_allocated: t.event ? t.event.questionsPerTeam : 5,
                 time_limit_minutes: t.event?.timeLimitMinutes || 40,
                 questions_attempted,
+                current_score,
                 time_elapsed,
                 time_remaining,
                 violation_count: session ? session.violationCount : 0,

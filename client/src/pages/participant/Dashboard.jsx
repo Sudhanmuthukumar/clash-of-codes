@@ -153,12 +153,41 @@ const ParticipantDashboard = () => {
           
           <div className="card-fortress flex-grow flex flex-col justify-center items-center text-center p-6">
             {isTeamCompleted ? (
-              <div className="py-2">
-                <div className="flex justify-center mb-2">
+              <div className="py-2 w-full space-y-3">
+                <div className="flex justify-center mb-1">
                   <IconTrophy className="w-10 h-10 text-amber-400 filter drop-shadow" />
                 </div>
-                <p className="text-amber-400 font-bold font-fantasy text-lg mb-1">Battle Finished!</p>
-                <p className="text-stone-400 text-xs font-sans">Your clan's submissions have been recorded in the Hall of Victory.</p>
+                <div>
+                  <p className="text-amber-400 font-bold font-fantasy text-lg">Battle Finished!</p>
+                  <p className="text-stone-400 text-xs font-sans">Your clan's submissions have been sealed and recorded.</p>
+                </div>
+
+                <div className="bg-stone-900/90 border border-stone-800 rounded-xl p-3.5 text-xs text-stone-300 space-y-2 font-mono text-left max-w-xs mx-auto">
+                  <div className="flex justify-between border-b border-stone-800 pb-1.5">
+                    <span className="text-stone-400 font-sans">Status:</span>
+                    <span className="text-emerald-400 font-bold uppercase">Completed</span>
+                  </div>
+                  {data.final_score !== null && (
+                    <div className="flex justify-between border-b border-stone-800 pb-1.5">
+                      <span className="text-stone-400 font-sans">Final Score:</span>
+                      <span className="text-amber-300 font-bold">{data.final_score} PTS</span>
+                    </div>
+                  )}
+                  {data.time_used_seconds !== null && (
+                    <div className="flex justify-between border-b border-stone-800 pb-1.5">
+                      <span className="text-stone-400 font-sans">Time Used:</span>
+                      <span className="text-stone-200 font-bold">
+                        {Math.floor(data.time_used_seconds / 60)}m {data.time_used_seconds % 60}s
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-stone-400 font-sans">Questions Solved:</span>
+                    <span className="text-emerald-400 font-bold">
+                      {data.questions_solved !== undefined ? data.questions_solved : 0} / {data.allocated_count || questionsList.length || 5}
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : (
               <>

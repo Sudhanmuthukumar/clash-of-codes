@@ -26,8 +26,20 @@ const ParticipantHiddenTech = () => {
   const [submittingFinal, setSubmittingFinal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeHintSubId, setActiveHintSubId] = useState(null);
+  const [showFinishEventModal, setShowFinishEventModal] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+
+  const handleFinishEvent = async () => {
+    try {
+      await api.post('/participant/event/submit');
+      toast.success('Your Crack the Code battle has been submitted and recorded successfully!');
+      setShowFinishEventModal(false);
+      navigate('/participant/dashboard');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to finalize battle submission');
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -193,18 +205,32 @@ const ParticipantHiddenTech = () => {
           ))}
         </div>
 
-        {status && (
-          <div className="w-52 shrink-0">
-            <CountdownTimer
-              serverTime={status.server_time}
-              startTime={status.start_time}
-              expiresAt={status.expires_at}
-              timeLimitMinutes={status.time_limit_minutes}
-              pauseDuration={status.pause_duration_seconds}
-              eventStatus={status.status}
-            />
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {status && (
+            <div className="w-52 shrink-0">
+              <CountdownTimer
+                serverTime={status.server_time}
+                startTime={status.start_time}
+                expiresAt={status.expires_at}
+                timeLimitMinutes={status.time_limit_minutes}
+                pauseDuration={status.pause_duration_seconds}
+                eventStatus={status.status}
+                onExpire={() => {
+                  fetchStatus();
+                  toast.error("TIME'S UP! The battle has concluded.");
+                }}
+              />
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowFinishEventModal(true)}
+            className="btn-danger text-xs px-3.5 py-2 font-bold uppercase tracking-wider shrink-0 shadow-md shadow-red-950/40"
+            title="Finalize your clan's battle submission"
+          >
+            Submit Battle
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -407,6 +433,17 @@ const ParticipantHiddenTech = () => {
         message="Are you sure you want to reveal the hint for this defense challenge?"
         confirmText="Reveal Hint"
         confirmStyle="warning"
+      />
+
+      {/* Overall Event Finish Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showFinishEventModal}
+        onClose={() => setShowFinishEventModal(false)}
+        onConfirm={handleFinishEvent}
+        title="Submit Crack the Code?"
+        message="Your answers for all assigned chambers will be sealed and submitted. This cannot be changed afterward."
+        confirmText="Submit Crack the Code"
+        confirmStyle="danger"
       />
       </div>
     </TestModeGuard>

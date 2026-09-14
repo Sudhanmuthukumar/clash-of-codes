@@ -200,10 +200,11 @@ const AdminDashboard = () => {
                 <tr>
                   <th className="py-3 px-4">Team Name</th>
                   <th className="py-3 px-4">Event</th>
-                  <th className="py-3 px-4">Questions Attempted</th>
-                  <th className="py-3 px-4">Time Remaining</th>
-                  <th className="py-3 px-4">Anti-Cheat Warnings</th>
-                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-center">Current Score</th>
+                  <th className="py-3 px-4 text-center">Questions Attempted</th>
+                  <th className="py-3 px-4 text-center">Warnings</th>
+                  <th className="py-3 px-4 text-center">Test Status</th>
+                  <th className="py-3 px-4 text-right">Time Remaining</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dark-800 font-mono text-xs">
@@ -211,13 +212,13 @@ const AdminDashboard = () => {
                   <tr key={t.id} className="hover:bg-dark-800/40">
                     <td className="py-3 px-4 font-bold text-white">{t.team_name}</td>
                     <td className="py-3 px-4 text-cyan-300">{t.event_name}</td>
-                    <td className="py-3 px-4 text-gray-300">
+                    <td className="py-3 px-4 text-center font-bold text-amber-300">
+                      {t.current_score || 0} PTS
+                    </td>
+                    <td className="py-3 px-4 text-center text-gray-300">
                       {t.questions_attempted} / {t.total_allocated}
                     </td>
-                    <td className="py-3 px-4 text-gray-300">
-                      {t.time_remaining !== undefined ? `${Math.floor(t.time_remaining / 60)}m ${t.time_remaining % 60}s` : '—'}
-                    </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 text-center">
                       {t.status === 'terminated' || t.test_status === 'TERMINATED' ? (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-950 text-red-400 border border-red-700" title={t.termination_reason || '3 violations exceeded'}>
                           TERMINATED (3/3)
@@ -234,20 +235,25 @@ const AdminDashboard = () => {
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                          t.status === 'completed'
-                            ? 'bg-blue-900/40 text-blue-400 border border-blue-800'
-                            : t.status === 'active'
-                            ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800'
-                            : t.status === 'terminated'
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase ${
+                          (t.test_status === 'TERMINATED' || t.status === 'terminated')
                             ? 'bg-red-950 text-red-400 border border-red-800 font-black'
-                            : 'bg-red-900/40 text-red-400 border border-red-800'
+                            : (t.test_status === 'EXPIRED' || t.status === 'time_expired')
+                            ? 'bg-stone-800 text-stone-400 border border-stone-700'
+                            : (t.test_status === 'SUBMITTED' || t.status === 'completed')
+                            ? 'bg-blue-900/40 text-blue-400 border border-blue-800'
+                            : (t.test_status === 'ACTIVE' || t.status === 'active')
+                            ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800'
+                            : 'bg-stone-900 text-stone-400 border border-stone-800'
                         }`}
                       >
-                        {t.status}
+                        {t.test_status || t.status}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-right text-gray-300 font-bold">
+                      {t.time_remaining !== undefined ? `${Math.floor(t.time_remaining / 60)}m ${t.time_remaining % 60}s` : '—'}
                     </td>
                   </tr>
                 ))}
