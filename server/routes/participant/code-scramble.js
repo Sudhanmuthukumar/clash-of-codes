@@ -79,7 +79,7 @@ router.get('/questions', async (req, res) => {
                     title: q.title,
                     display_order: alloc.displayOrder || idx + 1,
                     is_saved: !!attempt,
-                    is_attempted: attempt ? attempt.isSubmitted === 1 : false
+                    is_attempted: attempt ? (attempt.isSubmitted === 1 || attempt.swapsCount > 0 || attempt.hintsCount > 0 || attempt.isCorrect === 1) : false
                 };
             })
             .filter(Boolean);

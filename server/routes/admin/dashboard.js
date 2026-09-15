@@ -81,8 +81,7 @@ router.get('/live', async (req, res) => {
             include: {
                 event: true,
                 csAttempts: {
-                    where: { isSubmitted: 1 },
-                    select: { id: true, marksAwarded: true }
+                    select: { id: true, marksAwarded: true, isCorrect: true, isSubmitted: true, swapsCount: true, hintsCount: true }
                 },
                 htSubAttempts: {
                     select: { id: true, marksAwarded: true, isCorrect: true }
@@ -102,14 +101,14 @@ router.get('/live', async (req, res) => {
         });
 
         const formatted = teams.map(t => {
-            const csCount = t.csAttempts.length;
+            const csAttempted = t.csAttempts.filter(a => a.isSubmitted === 1 || a.swapsCount > 0 || a.hintsCount > 0 || a.isCorrect === 1).length;
             const htCount = t.htFinalAttempts.length;
-            const questions_attempted = csCount + htCount;
+            const questions_attempted = t.year === '2nd Year' ? csAttempted : htCount;
 
             // Compute current score
             let current_score = 0;
             if (t.year === '2nd Year') {
-                current_score = t.csAttempts.reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
+                current_score = t.csAttempts.filter(a => a.isCorrect === 1).reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
             } else {
                 const subMarks = t.htSubAttempts.filter(a => a.isCorrect === 1).reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
                 const finalMarks = t.htFinalAttempts.filter(a => a.isCorrect === 1).reduce((sum, a) => sum + (a.marksAwarded || 0), 0);
@@ -128,13 +127,16 @@ router.get('/live', async (req, res) => {
             let time_remaining = eventDuration;
             const startMs = session ? new Date(session.startedAt).getTime() : (t.eventStartedAt ? new Date(t.eventStartedAt).getTime() : null);
 
+            const isSessionExpired = session && (session.status === 'EXPIRED' || new Date() > new Date(session.expiresAt));
+
             if (session && startMs) {
                 const isFinalized = ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(session.status) ||
+                                    isSessionExpired ||
                                     t.status === 'completed' ||
                                     t.status === 'time_expired';
 
                 if (isFinalized) {
-                    if (session.status === 'EXPIRED') {
+                    if (session.status === 'EXPIRED' || isSessionExpired) {
                         // For expiry: expiresAt - startedAt
                         time_used = Math.round((new Date(session.expiresAt).getTime() - startMs) / 1000);
                     } else if (session.status === 'SUBMITTED' || session.status === 'TERMINATED') {
@@ -174,13 +176,16 @@ router.get('/live', async (req, res) => {
                 time_used = 0;
             }
 
+            const effectiveSessionStatus = session ? (isSessionExpired && session.status === 'ACTIVE' ? 'EXPIRED' : session.status) : 'NOT_STARTED';
+            const effectiveStatus = effectiveSessionStatus === 'TERMINATED' ? 'terminated' : (effectiveSessionStatus === 'SUBMITTED' ? 'completed' : (effectiveSessionStatus === 'EXPIRED' ? 'time_expired' : t.status));
+
             return {
                 id: t.id,
                 team_name: t.teamName,
                 year: t.year,
                 event_name: activeEvent ? activeEvent.name : null,
                 event_id: activeEvent ? activeEvent.id : null,
-                status: session && session.status === 'TERMINATED' ? 'terminated' : (session && session.status === 'SUBMITTED' ? 'completed' : (session && session.status === 'EXPIRED' ? 'time_expired' : t.status)),
+                status: effectiveStatus,
                 event_started_at: session ? session.startedAt.toISOString() : (t.eventStartedAt ? t.eventStartedAt.toISOString() : null),
                 event_submitted_at: t.eventSubmittedAt ? t.eventSubmittedAt.toISOString() : null,
                 total_allocated: activeEvent ? activeEvent.questionsPerTeam : 5,

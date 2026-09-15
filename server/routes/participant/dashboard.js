@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
                 if (team.year === '2nd Year') {
                     csAttempts = await prisma.codeScrambleAttempt.findMany({
                         where: { teamId: team.id, questionId: { in: allocatedIds } },
-                        select: { questionId: true, isSubmitted: true }
+                        select: { questionId: true, isSubmitted: true, swapsCount: true, hintsCount: true, isCorrect: true }
                     });
                 } else {
                     htFinalAttempts = await prisma.hiddenTechFinalAttempt.findMany({
@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
                     });
                 }
 
-                const csMap = new Map(csAttempts.map(a => [a.questionId, a.isSubmitted === 1]));
+                const csMap = new Map(csAttempts.map(a => [a.questionId, a.isSubmitted === 1 || a.swapsCount > 0 || a.hintsCount > 0 || a.isCorrect === 1]));
                 const htMap = new Set(htFinalAttempts.map(a => a.questionId));
 
                 questionsList = teamAllocs.map((alloc, idx) => {

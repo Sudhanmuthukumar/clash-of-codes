@@ -67,7 +67,8 @@ async function calculateTeamResults(teamId, eventId) {
             const hints = team.hints.filter(h => h.questionId === q.id && !h.subQuestionId);
             const qHintPenalty = hints.reduce((sum, h) => sum + h.penalty, 0);
 
-            const isSub = attempt ? attempt.isSubmitted === 1 : false;
+            // Attempted if submitted, or has swaps/hints, or is correctly solved
+            const isAtt = attempt ? (attempt.isSubmitted === 1 || attempt.swapsCount > 0 || attempt.hintsCount > 0 || attempt.isCorrect === 1) : false;
             const isCor = attempt ? attempt.isCorrect === 1 : false;
             const marksAwarded = attempt ? attempt.marksAwarded : 0;
 
@@ -82,15 +83,17 @@ async function calculateTeamResults(teamId, eventId) {
                 hints_count: attempt ? attempt.hintsCount : hints.length,
                 points_remaining: attempt ? attempt.currentPoints : q.marks,
                 marks_awarded: marksAwarded,
-                is_submitted: isSub,
+                is_submitted: attempt ? (attempt.isSubmitted === 1 || isAtt) : false,
                 is_correct: isCor,
                 hint_penalty: qHintPenalty,
                 hints_used: attempt ? attempt.hintsCount : hints.length
             });
 
-            if (isSub) {
+            if (isAtt || isCor || attempt?.isSubmitted === 1) {
                 attempted++;
-                if (isCor) correct++;
+            }
+            if (isCor) {
+                correct++;
                 totalMarks += marksAwarded;
             }
             hintsUsed += hints.length;
@@ -196,15 +199,17 @@ async function calculateTeamResults(teamId, eventId) {
     const sessionLimit = session?.event?.timeLimitMinutes;
     const maxAllowedSeconds = (sessionLimit || team.event?.timeLimitMinutes || 40) * 60;
 
+    const isSessionExpired = session && (session.status === 'EXPIRED' || new Date() > new Date(session.expiresAt));
     // Only finalized teams (SUBMITTED, EXPIRED, TERMINATED, or team.status completed/time_expired) have finalized completion time
     const isFinalized = (session && ['SUBMITTED', 'EXPIRED', 'TERMINATED'].includes(session.status)) ||
+                        isSessionExpired ||
                         team.status === 'completed' ||
                         team.status === 'time_expired';
 
     if (isFinalized) {
         if (session) {
             const startMs = new Date(session.startedAt).getTime();
-            if (session.status === 'EXPIRED') {
+            if (session.status === 'EXPIRED' || isSessionExpired) {
                 // For EXPIRY: timeUsedSeconds = testSession.expiresAt - testSession.startedAt
                 timeTaken = Math.round((new Date(session.expiresAt).getTime() - startMs) / 1000);
             } else if (session.status === 'SUBMITTED' || session.status === 'TERMINATED') {
@@ -233,6 +238,9 @@ async function calculateTeamResults(teamId, eventId) {
     const m2Name = team.member2Name || team.participant2Name;
     const m2Sec = team.member2Section || team.participant2Batch;
 
+    const effectiveSessionStatus = session ? (isSessionExpired && session.status === 'ACTIVE' ? 'EXPIRED' : session.status) : 'NOT_STARTED';
+    const effectiveTeamStatus = effectiveSessionStatus === 'TERMINATED' ? 'terminated' : (effectiveSessionStatus === 'SUBMITTED' ? 'completed' : (effectiveSessionStatus === 'EXPIRED' ? 'time_expired' : team.status));
+
     return {
         team_id: team.id,
         team_name: team.teamName,
@@ -247,8 +255,8 @@ async function calculateTeamResults(teamId, eventId) {
         member_2_section: m2Sec,
         email: team.email,
         event: team.event ? team.event.name : null,
-        status: session && session.status === 'TERMINATED' ? 'terminated' : (session && session.status === 'SUBMITTED' ? 'completed' : (session && session.status === 'EXPIRED' ? 'time_expired' : team.status)),
-        test_status: session ? session.status : 'NOT_STARTED',
+        status: effectiveTeamStatus,
+        test_status: effectiveSessionStatus,
         total_marks: Math.max(0, totalMarks),
         total_possible: totalPossible,
         questions_attempted: attempted,

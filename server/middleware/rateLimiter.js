@@ -4,7 +4,9 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: isDev ? 1000 : 20,
+    max: isDev ? 2000 : 500, // Allows 100+ concurrent students/teams behind shared college NAT/IP
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { error: 'Too many login attempts, please try again later' }
 });
 
